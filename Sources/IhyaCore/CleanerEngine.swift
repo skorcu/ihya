@@ -340,6 +340,11 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     
     public func removeAllGhostDaemons() {
         for ghost in ghostDaemons {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+            proc.arguments = ["bootout", "gui/\(getuid())", ghost.plistPath]
+            try? proc.run()
+            proc.waitUntilExit()
             try? FileManager.default.removeItem(atPath: ghost.plistPath)
         }
         self.ghostDaemons.removeAll()
@@ -347,12 +352,16 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     
     public func removeGhostDaemon(id: String) {
         if let ghost = ghostDaemons.first(where: { $0.id == id }) {
-            try? FileManager.default.removeItem(atPath: ghost.plistPath)
-            ghostDaemons.removeAll(where: { $0.id == id })
+            removeGhostDaemon(ghost: ghost)
         }
     }
     
     public func removeGhostDaemon(ghost: GhostDaemonItem) {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        proc.arguments = ["bootout", "gui/\(getuid())", ghost.plistPath]
+        try? proc.run()
+        proc.waitUntilExit()
         try? FileManager.default.removeItem(atPath: ghost.plistPath)
         ghostDaemons.removeAll(where: { $0.id == ghost.id })
     }

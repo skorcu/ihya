@@ -7,12 +7,12 @@ struct IhyaCLI {
         let args = CommandLine.arguments
         
         if args.contains("--version") || args.contains("-v") {
-            print("İhyâ v1.0.0 Universal 2 (Apple Silicon & Intel) - macOS 14+")
+            print("İhyâ v1.5.3 Universal 2 (Apple Silicon & Intel) - macOS 14+")
             return
         }
         
         print("======================================================")
-        print("  💎 İHYÂ (v1.0.0 Universal 2 - Apple Silicon & Intel)")
+        print("  💎 İHYÂ (v1.5.3 Universal 2 - Apple Silicon & Intel)")
         print("  Yeni Nesil macOS Arınma & Canlanma Motoru")
         print("======================================================")
         

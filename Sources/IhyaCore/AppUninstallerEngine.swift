@@ -454,16 +454,22 @@ public final class AppUninstallerEngine: Sendable {
         return !FileManager.default.fileExists(atPath: path)
     }
     
-    /// Uygulama açıksa önce nazikçe (terminate), kapanmazsa zorla (forceTerminate) kapatır
+    /// Uygulama açıksa önce nazikçe (terminate), kapanmazsa zorla (forceTerminate + SIGKILL) kapatır
     public func closeAppIfRunning(bundleId: String, bundlePath: String) {
         let runningApps = NSWorkspace.shared.runningApplications
         for app in runningApps {
+            // İhyâ'nın kendisini asla kapatma
+            if app.bundleIdentifier == Bundle.main.bundleIdentifier || app.processIdentifier == ProcessInfo.processInfo.processIdentifier {
+                continue
+            }
+            
             if (app.bundleIdentifier != nil && app.bundleIdentifier == bundleId) ||
                (app.bundleURL != nil && app.bundleURL?.path == bundlePath) {
                 app.terminate()
                 usleep(300_000) // 300 ms bekle
                 if !app.isTerminated {
                     app.forceTerminate()
+                    kill(app.processIdentifier, SIGKILL)
                     usleep(150_000)
                 }
             }

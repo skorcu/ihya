@@ -103,10 +103,9 @@ public final class DeepSystemJunkScanner: Sendable {
             }
         }
         
-        // 5. Unutulmuş Kurulum Dosyaları (.dmg, .pkg, .iso) - İndirilenler & Masaüstü
+        // 5. Unutulmuş Kurulum Dosyaları (.dmg, .pkg, .iso) - İndirilenler
         let installScanFolders = [
-            (home as NSString).appendingPathComponent("Downloads"),
-            (home as NSString).appendingPathComponent("Desktop")
+            (home as NSString).appendingPathComponent("Downloads")
         ]
         for folder in installScanFolders {
             guard let files = try? fm.contentsOfDirectory(atPath: folder) else { continue }
