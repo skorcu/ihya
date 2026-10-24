@@ -1,0 +1,165 @@
+import Foundation
+import CommonCrypto
+import Combine
+
+public enum LicenseTier: String, Codable, Sendable {
+    case free = "Ücretsiz"
+    case proLifetime = "İhyâ Pro (Ömür Boyu)"
+}
+
+public final class LicenseManager: ObservableObject, @unchecked Sendable {
+    public static let shared = LicenseManager()
+    
+    // Tanıtım Dönemi: İhyâ lansmanında tüm Pro özellikler açık olarak başlar
+    public static var promotionalFreeAccessActive: Bool {
+        LicenseManager.shared.isPromotionalProActive
+    }
+    
+    private static let masterSalt = "IHYA_MAC_CLEANER_PRO_2026_MASTER_SECRET_SALT_7b9d1e4c3a2f8015"
+    public static let serverBaseURL: String = "https://caneser.com"
+    
+    private let defaults = UserDefaults.standard
+    private let licenseKeyPrefKey = "ihya_pro_license_key"
+    private let licenseStatusPrefKey = "ihya_pro_license_active"
+    private let promoStatusPrefKey = "ihya_promo_pro_active"
+    
+    @Published public private(set) var activeLicenseKey: String = ""
+    @Published public private(set) var hasPersonalLicense: Bool = false
+    @Published public private(set) var isPromotionalProActive: Bool = true
+    @Published public private(set) var isProUnlocked: Bool = true
+    @Published public private(set) var licenseTier: LicenseTier = .proLifetime
+    
+    private init() {
+        loadSavedLicense()
+        Task {
+            await syncRemotePromoStatus()
+            if !hasPersonalLicense {
+                await autoRestoreHardwareLicense()
+            }
+        }
+    }
+    
+    private func loadSavedLicense() {
+        if defaults.object(forKey: promoStatusPrefKey) != nil {
+            self.isPromotionalProActive = defaults.bool(forKey: promoStatusPrefKey)
+        } else {
+            self.isPromotionalProActive = true
+        }
+        
+        if let key = defaults.string(forKey: licenseKeyPrefKey), !key.isEmpty, verifyKey(key) {
+            setPersonalUnlockedState(key: key)
+            return
+        }
+        
+        if let key = KeychainHelper.loadLicenseKey(), !key.isEmpty, verifyKey(key) {
+            defaults.set(key, forKey: licenseKeyPrefKey)
+            defaults.set(true, forKey: licenseStatusPrefKey)
+            setPersonalUnlockedState(key: key)
+            return
+        }
+        
+        self.activeLicenseKey = ""
+        self.hasPersonalLicense = false
+        updateProStatus()
+    }
+    
+    private func setPersonalUnlockedState(key: String) {
+        self.activeLicenseKey = key
+        self.hasPersonalLicense = true
+        self.isProUnlocked = true
+        self.licenseTier = .proLifetime
+    }
+    
+    public func updateProStatus() {
+        if hasPersonalLicense || isPromotionalProActive {
+            self.isProUnlocked = true
+            self.licenseTier = .proLifetime
+        } else {
+            self.isProUnlocked = false
+            self.licenseTier = .free
+        }
+    }
+    
+    public func syncRemotePromoStatus() async {
+        guard let url = URL(string: "\(Self.serverBaseURL)/api/ihya/version.json") else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 5.0
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let promoActive = json["promo_pro_active"] as? Bool ?? true
+                await MainActor.run {
+                    self.isPromotionalProActive = promoActive
+                    self.defaults.set(promoActive, forKey: self.promoStatusPrefKey)
+                    self.updateProStatus()
+                }
+            }
+        } catch {}
+    }
+    
+    public func activate(key: String) async -> (success: Bool, message: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard verifyKey(trimmed) else {
+            return (false, "Geçersiz İhyâ Pro lisans anahtarı.")
+        }
+        
+        defaults.set(trimmed, forKey: licenseKeyPrefKey)
+        defaults.set(true, forKey: licenseStatusPrefKey)
+        KeychainHelper.saveLicenseKey(trimmed)
+        
+        await MainActor.run {
+            self.setPersonalUnlockedState(key: trimmed)
+        }
+        return (true, "İhyâ Pro başarıyla etkinleştirildi.")
+    }
+    
+    public func autoRestoreHardwareLicense() async {
+        let hwid = HardwareFingerprint.machineId
+        guard let url = URL(string: "\(Self.serverBaseURL)/api/ihya/check-hwid?hwid=\(hwid)") else { return }
+        
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 5.0
+        if let (data, response) = try? await URLSession.shared.data(for: request),
+           let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let registered = json["registered"] as? Bool, registered,
+           let restoredKey = json["key"] as? String, verifyKey(restoredKey) {
+            
+            await MainActor.run {
+                self.defaults.set(restoredKey, forKey: self.licenseKeyPrefKey)
+                self.setPersonalUnlockedState(key: restoredKey)
+            }
+        }
+    }
+    
+    public func verifyKey(_ key: String) -> Bool {
+        let parts = key.split(separator: "-").map(String.init)
+        guard parts.count >= 4, parts[0] == "IHYA", parts[1] == "PRO" else {
+            return false
+        }
+        let payload = parts[2]
+        let providedSig = parts[3]
+        let expectedSig = computeSignature(for: payload)
+        return providedSig == expectedSig
+    }
+    
+    public func computeSignature(for payload: String) -> String {
+        let message = "\(payload):\(Self.masterSalt)"
+        guard let keyData = Self.masterSalt.data(using: .utf8),
+              let msgData = message.data(using: .utf8) else {
+            return ""
+        }
+        
+        var mac = [UInt8](repeating: 0, count: Int(CC_SHA256_DIGEST_LENGTH))
+        keyData.withUnsafeBytes { keyBytes in
+            msgData.withUnsafeBytes { msgBytes in
+                CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256), keyBytes.baseAddress, keyData.count, msgBytes.baseAddress, msgData.count, &mac)
+            }
+        }
+        return mac.prefix(8).map { String(format: "%02X", $0) }.joined()
+    }
+}
