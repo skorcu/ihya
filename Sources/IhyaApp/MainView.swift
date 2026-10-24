@@ -345,58 +345,97 @@ public struct MainView: View {
                     .buttonStyle(.plain)
                     .padding(.bottom, 2)
                 } else if licenseManager.hasPersonalLicense {
-                    HStack(spacing: 6) {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color(hex: "FDE047"))
-                        Text("Ömür Boyu VIP")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(.white)
+                    // Tek ve Birleşik Lüks VIP & Donanım Kartı (Sıfır Mükerrerlik)
+                    HStack(spacing: 8) {
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: "7C3AED").opacity(0.3))
+                                .frame(width: 26, height: 26)
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: "FDE047"))
+                        }
+                        
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 5) {
+                                Text("PRO")
+                                    .font(.system(size: 8, weight: .black))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color(hex: "7C3AED"))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(3)
+                                
+                                Text("Ömür Boyu VIP")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(.white)
+                            }
+                            
+                            Text(HardwareInfo.summary)
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.55))
+                                .lineLimit(1)
+                        }
+                        
                         Spacer()
+                        
                         Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                             .foregroundColor(Color(hex: "10B981"))
                     }
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 7)
-                    .background(Color(hex: "7C3AED").opacity(0.22))
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.04))
                     .cornerRadius(8)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(hex: "A855F7").opacity(0.4), lineWidth: 1)
+                            .stroke(Color(hex: "7C3AED").opacity(0.35), lineWidth: 1)
                     )
-                    .padding(.bottom, 2)
-                }
-                
-                // Donanım Özeti
-                HStack(spacing: 6) {
-                    Image(systemName: "cpu")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.5))
-                    
-                    Text(HardwareInfo.summary)
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.6))
-                        .lineLimit(1)
-                }
-                
-                // VIP / Lisans Rozeti
-                HStack {
-                    if licenseManager.isProUnlocked {
-                        HStack(spacing: 4) {
-                            Text("PRO")
-                                .font(.system(size: 9, weight: .black))
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 2)
-                                .background(Color(hex: licenseManager.hasPersonalLicense ? "7C3AED" : "2563EB"))
-                                .foregroundColor(.white)
-                                .cornerRadius(4)
+                } else {
+                    // Trial veya Standart Pro
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 4) {
+                                Text("PRO")
+                                    .font(.system(size: 9, weight: .black))
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(Color(hex: "2563EB"))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(4)
+                                
+                                Text(licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "İhyâ Pro")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.85))
+                            }
                             
-                            Text(licenseManager.hasPersonalLicense ? "Ömür Boyu VIP" : (licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "Pro"))
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.85))
+                            Text(HardwareInfo.summary)
+                                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.55))
+                                .lineLimit(1)
                         }
-                    } else {
+                        Spacer()
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.04))
+                    .cornerRadius(8)
+                }
+                
+                // Güncelleme Butonu Varsa
+                if !licenseManager.hasPersonalLicense {
+                    // Pro olmayanlar için donanım & free rozeti
+                    HStack(spacing: 6) {
+                        Image(systemName: "cpu")
+                            .font(.system(size: 10))
+                            .foregroundColor(.white.opacity(0.5))
+                        Text(HardwareInfo.summary)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.6))
+                            .lineLimit(1)
+                    }
+                    
+                    HStack {
                         Button(action: { selectedTab = .settings }) {
                             HStack(spacing: 4) {
                                 Text("FREE")
@@ -406,15 +445,17 @@ public struct MainView: View {
                                     .background(Color.white.opacity(0.12))
                                     .foregroundColor(.white.opacity(0.7))
                                     .cornerRadius(4)
-                                
                                 Text("Pro'ya Yükselt")
                                     .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(Color(hex: "38BDF8"))
                             }
                         }
                         .buttonStyle(.plain)
+                        Spacer()
                     }
-                    
+                }
+                
+                HStack {
                     Spacer()
                     
                     if updateChecker.updateAvailable {
@@ -637,22 +678,22 @@ public struct MainView: View {
                 }
                 .buttonStyle(.plain)
                 .help("Ömür Boyu İhyâ Pro Lisansı Satın Al (sarkacadam.com)")
-            } else if licenseManager.hasPersonalLicense {
+            } else if licenseManager.isTrialActive && !licenseManager.hasPersonalLicense {
                 HStack(spacing: 5) {
-                    Image(systemName: "crown.fill")
+                    Image(systemName: "clock.badge.checkmark.fill")
                         .font(.system(size: 10, weight: .bold))
-                        .foregroundColor(Color(hex: "FDE047"))
-                    Text("Ömür Boyu VIP")
+                        .foregroundColor(Color(hex: "38BDF8"))
+                    Text("Pro Deneme (\(licenseManager.trialDaysRemaining) Gün)")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(Color(hex: "7C3AED").opacity(0.3))
+                .background(Color(hex: "0284C7").opacity(0.25))
                 .cornerRadius(8)
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(hex: "A855F7").opacity(0.4), lineWidth: 1)
+                        .stroke(Color(hex: "38BDF8").opacity(0.4), lineWidth: 1)
                 )
             }
             
