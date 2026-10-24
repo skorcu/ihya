@@ -482,10 +482,11 @@ public struct MainView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .frame(height: 27)
                     .padding(.horizontal, 8)
+                    .contentShape(Rectangle())
                     .background(
                         selectedTab == tab ?
                         Color.white.opacity(0.12) :
-                        Color.clear
+                        Color.white.opacity(0.001)
                     )
                     .cornerRadius(7)
                     .overlay(
