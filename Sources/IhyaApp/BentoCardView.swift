@@ -108,11 +108,11 @@ public struct BentoCardView: View {
                             }
                         } else if isCompleted {
                             HStack(spacing: 5) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color(hex: "38BDF8"))
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("Bulundu")
-                                    .font(.system(size: 11, weight: .bold))
+                                Circle()
+                                    .fill(Color(hex: "38BDF8"))
+                                    .frame(width: 6, height: 6)
+                                Text("Hazır")
+                                    .font(.system(size: 10, weight: .semibold))
                                     .foregroundColor(Color(hex: "38BDF8"))
                             }
                         }

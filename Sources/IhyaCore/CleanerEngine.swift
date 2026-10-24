@@ -80,22 +80,15 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         await updateTask("Hayalet servisler ve ölü ajanlar inceleniyor...", phase: .ghostDaemons, path: "~/Library/LaunchAgents")
         let ghosts = await GhostDaemonEngine.shared.scanGhostDaemons()
         
-        // 5. Faz: Çift Dosyalar (İndirilenler & Masaüstü)
-        await updateTask("Çift dosyalar ve ikiz kopyalar taranıyor...", phase: .duplicates, path: "~/Downloads")
-        let home = NSHomeDirectory()
-        let downloads = (home as NSString).appendingPathComponent("Downloads")
-        let desktop = (home as NSString).appendingPathComponent("Desktop")
-        let dupGroups = await DuplicateFinderEngine.shared.scanDuplicates(in: [downloads, desktop])
-        
-        // 6. Faz: Uygulama İnceltici (Lipo) & Yetim Artıklar
+        // 5. Faz: Uygulama İnceltici (Lipo) & Yetim Artıklar
         await updateTask("Evrensel ikililer ve mimari fazlalıkları taranıyor...", phase: .appLipo, path: "/Applications")
         let lipoItems = await AppLipoEngine.shared.scanUniversalApps()
         let orphanItems = await AppResidueEngine.shared.scanOrphanResidues()
         
-        // 7. Faz: Sistem Medya ve Dosya Dağılım Envanteri
-        let inventory = await SystemMediaInventory.shared.scanInventory(duplicateGroups: dupGroups)
+        // 6. Faz: Sistem Medya ve Dosya Dağılım Envanteri
+        let inventory = await SystemMediaInventory.shared.scanInventory()
         
-        // 8. Faz: Uygulamalar & Güncellemeler (Sparkle & Homebrew)
+        // 7. Faz: Uygulamalar & Güncellemeler (Sparkle & Homebrew)
         await updateTask("Yüklü uygulamalar ve güncellemeler denetleniyor...", phase: .appLipo, path: "/Applications")
         let (updates, totalApps) = await AppUpdaterEngine.shared.scanAvailableUpdates()
         
@@ -119,6 +112,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             updatedCats.append(CategorySummary(category: .developerVault, totalSize: devSize, items: devItems))
             
             // Çöp Sepeti
+            let home = NSHomeDirectory()
             let trashPath = (home as NSString).appendingPathComponent(".Trash")
             let trashSize = FastScanner.shared.getPathSize(path: trashPath)
             var trashItems: [CleanItem] = []
@@ -136,16 +130,15 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             
             self.categories = updatedCats
             self.ghostDaemons = ghosts
-            self.duplicates = dupGroups
+            self.duplicates = []
             self.lipoCandidates = lipoItems
             self.mediaInventory = inventory
             self.availableUpdates = updates
             self.totalInstalledAppsCount = totalApps
             
+            // Sadece arındırılabilir sistem çöpleri ve önbellekler dahil edilir (Şahsî dosyalar asla eklenmez)
             let catTotal = updatedCats.reduce(0) { $0 + $1.totalSize }
-            let lipoTotal = lipoItems.reduce(0) { $0 + $1.reclaimableSize }
-            let dupTotal = dupGroups.reduce(0) { $0 + $1.reclaimableSize }
-            self.totalReclaimableBytes = catTotal + lipoTotal + dupTotal
+            self.totalReclaimableBytes = catTotal
             
             self.isScanning = false
             self.currentPhase = .completed
@@ -291,10 +284,10 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         guard let catIdx = categories.firstIndex(where: { $0.category == categoryType }) else { return }
         if let itemIdx = categories[catIdx].items.firstIndex(where: { $0.id == itemId }) {
             categories[catIdx].items[itemIdx].isSelected.toggle()
-            let catTotal = categories.reduce(0) { $0 + $1.totalSize }
-            let lipoTotal = lipoCandidates.reduce(0) { $0 + $1.reclaimableSize }
-            let dupTotal = duplicates.reduce(0) { $0 + $1.reclaimableSize }
-            self.totalReclaimableBytes = catTotal + lipoTotal + dupTotal
+            let catTotal = categories.filter { $0.isEnabled }.reduce(0) { catSum, cat in
+                catSum + cat.items.filter { $0.isSelected }.reduce(0) { $0 + $1.size }
+            }
+            self.totalReclaimableBytes = catTotal
         }
     }
     

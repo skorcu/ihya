@@ -529,9 +529,9 @@ public struct MainView: View {
                         description: "Sildiğiniz programlardan kalan ölü arka plan ajanlarını ve tehditleri tespit eder."
                     ),
                     .init(
-                        icon: "arrow.triangle.2.circlepath",
-                        title: "İkiz Dosyalar ve Geliştirici Artıkları",
-                        description: "Çift indirmeleri, ölü Intel (x86_64) mimari kodlarını ve Xcode artıklarını arındırır."
+                        icon: "shippingbox.and.arrow.backward.fill",
+                        title: "Uygulama Kalıntıları ve Geliştirici Artıkları",
+                        description: "Silinmiş programların yetim dosyalarını, Xcode derleme kalıntılarını ve paket önbelleklerini arındırır."
                     )
                 ],
                 targetDiskInfo: DiskInfo.current,
@@ -722,29 +722,35 @@ public struct MainView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // 5. Kart: Çift Dosya Avcısı
-                let isDupActive = engine.currentPhase == .duplicates
-                let isDupDone = engine.currentPhase == .appLipo || engine.currentPhase == .completed
-                let dupTotalReclaim = engine.duplicates.reduce(0) { $0 + $1.reclaimableSize }
-                let isDupCleaned = engine.hasCleaned && !engine.isScanning
+                // 5. Kart: Uygulama Artıkları (Yetim Kayıtlar)
+                let orphanCat = engine.categories.first(where: { $0.category == .appResidues })
+                let isOrphanActive = engine.currentPhase == .appLipo && engine.isScanning
+                let isOrphanDone = engine.currentPhase == .completed
+                let isOrphanCleaned = engine.hasCleaned && !engine.isScanning
+                let orphanSize = orphanCat?.totalSize ?? 0
                 
                 BentoCardView(
-                    title: "Çift Dosya Avcısı",
-                    subtitle: isDupActive ? "İkizler Aranıyor..." : "\(engine.duplicates.count) İkiz Grup",
-                    statusText: isDupActive ? "Taranıyor..." : (isDupCleaned ? "Temizlendi" : (isDupDone ? "\(ByteCountFormatter.string(fromByteCount: dupTotalReclaim, countStyle: .file)) Kopya" : (engine.isScanning ? "Sırada bekliyor..." : "İkiz İndirmeler & Belgeler"))),
-                    isCompleted: isDupDone && !engine.duplicates.isEmpty,
-                    isCleaned: isDupCleaned,
-                    isActive: isDupActive,
-                    emblemStyle: .sapphire,
-                    emblemIcon: "doc.on.doc.fill",
-                    itemsBreakdown: isDupActive ? [
-                        (name: "İndirilen Dosyalar", size: "Taranıyor..."),
-                        (name: "Kopya Görseller", size: "Taranıyor..."),
-                        (name: "Tekrarlanan Belgeler", size: "Taranıyor...")
+                    title: "Uygulama Artıkları",
+                    subtitle: isOrphanActive ? "Kalıntılar Taranıyor..." : (orphanSize > 0 ? orphanCat!.formattedSize : "Artık Kayıt Yok"),
+                    statusText: isOrphanActive ? "Taranıyor..." : (isOrphanCleaned ? "Arındırıldı" : (orphanSize > 0 ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Silinmiş Program Artıkları"))),
+                    isCompleted: isOrphanDone && orphanSize > 0,
+                    isCleaned: isOrphanCleaned,
+                    isActive: isOrphanActive,
+                    emblemStyle: .rose,
+                    emblemIcon: "shippingbox.and.arrow.backward.fill",
+                    itemsBreakdown: isOrphanActive ? [
+                        (name: "Silinmiş Program Kalıntıları", size: "Taranıyor..."),
+                        (name: "Yetim Caches & Preferences", size: "Taranıyor..."),
+                        (name: "Eski Destek Klasörleri", size: "Taranıyor...")
                     ] : nil
                 ) {
-                    selectedTab = .duplicateFinder
-                    HapticManager.shared.triggerClick()
+                    if let c = orphanCat, c.totalSize > 0 {
+                        withAnimation(.spring()) { selectedCategoryForXRay = c }
+                        HapticManager.shared.triggerClick()
+                    } else {
+                        selectedTab = .uninstaller
+                        HapticManager.shared.triggerClick()
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 
@@ -779,61 +785,29 @@ public struct MainView: View {
             }
             .frame(maxHeight: .infinity)
             
-            // Sistem İçerik Dağılımı ve Envanter Özeti (Görseller, Videolar, Müzik, Belgeler, Çift Kayıtlar)
-            if !engine.isScanning && (engine.mediaInventory.imagesCount > 0 || engine.mediaInventory.videosCount > 0 || !engine.duplicates.isEmpty) {
-                HStack(spacing: 16) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "photo.fill")
-                            .foregroundColor(Color(hex: "38BDF8"))
-                            .font(.system(size: 11))
-                        Text("\(engine.mediaInventory.imagesCount) Görsel")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
+            // Alt Bilgi Şeridi: Şahsî Dosya Güvenliği Güvencesi
+            if !engine.isScanning {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .foregroundColor(Color(hex: "34D399"))
+                        .font(.system(size: 13))
                     
-                    HStack(spacing: 5) {
-                        Image(systemName: "film.fill")
-                            .foregroundColor(Color(hex: "A855F7"))
-                            .font(.system(size: 11))
-                        Text("\(engine.mediaInventory.videosCount) Video")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
+                    Text("GÜVENLİK PROTOKOLÜ:")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "34D399"))
                     
-                    HStack(spacing: 5) {
-                        Image(systemName: "music.note")
-                            .foregroundColor(Color(hex: "EC4899"))
-                            .font(.system(size: 11))
-                        Text("\(engine.mediaInventory.audioCount) Ses")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                    
-                    HStack(spacing: 5) {
-                        Image(systemName: "doc.fill")
-                            .foregroundColor(Color(hex: "F59E0B"))
-                            .font(.system(size: 11))
-                        Text("\(engine.mediaInventory.documentsCount) Belge")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                    
-                    HStack(spacing: 5) {
-                        Image(systemName: "doc.on.doc.fill")
-                            .foregroundColor(Color(hex: "10B981"))
-                            .font(.system(size: 11))
-                        Text("\(engine.duplicates.count) İkiz Grup (\(engine.mediaInventory.formattedDuplicatesSize))")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(Color(hex: "34D399"))
-                    }
+                    Text("Fotoğraflarınız, videolarınız ve şahsî belgeleriniz ASLA silinmez. Sadece sistem çöpleri, web önbellekleri ve yetim artıklar arındırılır.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.75))
+                        .lineLimit(1)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 7)
-                .background(Color.white.opacity(0.04))
+                .background(Color(hex: "10B981").opacity(0.12))
                 .cornerRadius(12)
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                        .stroke(Color(hex: "10B981").opacity(0.25), lineWidth: 1)
                 )
             }
             
