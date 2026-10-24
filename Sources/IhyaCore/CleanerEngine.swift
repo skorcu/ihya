@@ -31,6 +31,8 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     @Published public var availableUpdates: [AppUpdateItem] = []
     @Published public var totalInstalledAppsCount: Int = 0
     @Published public var installedApps: [InstalledAppInfo] = []
+    @Published public var isGhostDaemonsEnabled: Bool = true
+    @Published public var isAppUpdatesEnabled: Bool = true
     
     public var formattedTotalReclaimable: String {
         ByteCountFormatter.string(fromByteCount: totalReclaimableBytes, countStyle: .file)
@@ -50,9 +52,36 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         }
     }
     
+    public func toggleCategoryEnabled(_ categoryType: CleanCategoryType) {
+        guard let idx = categories.firstIndex(where: { $0.category == categoryType }) else { return }
+        categories[idx].isEnabled.toggle()
+        recalculateTotalReclaimable()
+    }
+    
+    public func setCategoryEnabled(_ categoryType: CleanCategoryType, isEnabled: Bool) {
+        guard let idx = categories.firstIndex(where: { $0.category == categoryType }) else { return }
+        categories[idx].isEnabled = isEnabled
+        recalculateTotalReclaimable()
+    }
+    
+    public func toggleAllCategories(enabled: Bool) {
+        for idx in 0..<categories.count {
+            categories[idx].isEnabled = enabled
+        }
+        isGhostDaemonsEnabled = enabled
+        isAppUpdatesEnabled = enabled
+        recalculateTotalReclaimable()
+    }
+    
+    public var areAllCategoriesEnabled: Bool {
+        categories.allSatisfy { $0.isEnabled } && isGhostDaemonsEnabled
+    }
+    
     public func resetCategories() {
         let coreTypes: [CleanCategoryType] = [.systemJunk, .browserCaches, .appResidues, .developerVault, .trashBins]
         self.categories = coreTypes.map { CategorySummary(category: $0) }
+        self.isGhostDaemonsEnabled = true
+        self.isAppUpdatesEnabled = true
     }
     
     public func resetCleanedState() {
@@ -109,19 +138,23 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             
             // Sistem Çöpleri
             let sysSize = sysItems.reduce(0) { $0 + $1.size }
-            updatedCats.append(CategorySummary(category: .systemJunk, totalSize: sysSize, items: sysItems))
+            let sysEnabled = self.categories.first(where: { $0.category == .systemJunk })?.isEnabled ?? true
+            updatedCats.append(CategorySummary(category: .systemJunk, totalSize: sysSize, items: sysItems, isEnabled: sysEnabled))
             
             // Tarayıcı & Web Kasası
             let browserSize = browserItems.reduce(0) { $0 + $1.size }
-            updatedCats.append(CategorySummary(category: .browserCaches, totalSize: browserSize, items: browserItems))
+            let browserEnabled = self.categories.first(where: { $0.category == .browserCaches })?.isEnabled ?? true
+            updatedCats.append(CategorySummary(category: .browserCaches, totalSize: browserSize, items: browserItems, isEnabled: browserEnabled))
             
             // Yetim Artıklar
             let orphanSize = orphanItems.reduce(0) { $0 + $1.size }
-            updatedCats.append(CategorySummary(category: .appResidues, totalSize: orphanSize, items: orphanItems))
+            let orphanEnabled = self.categories.first(where: { $0.category == .appResidues })?.isEnabled ?? true
+            updatedCats.append(CategorySummary(category: .appResidues, totalSize: orphanSize, items: orphanItems, isEnabled: orphanEnabled))
             
             // Geliştirici Kasası
             let devSize = devItems.reduce(0) { $0 + $1.size }
-            updatedCats.append(CategorySummary(category: .developerVault, totalSize: devSize, items: devItems))
+            let devEnabled = self.categories.first(where: { $0.category == .developerVault })?.isEnabled ?? true
+            updatedCats.append(CategorySummary(category: .developerVault, totalSize: devSize, items: devItems, isEnabled: devEnabled))
             
             // Çöp Sepeti
             let home = NSHomeDirectory()
@@ -138,7 +171,8 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
                     itemDescription: "Silinmek üzere bekleyen dosyalar"
                 ))
             }
-            updatedCats.append(CategorySummary(category: .trashBins, totalSize: trashSize, items: trashItems))
+            let trashEnabled = self.categories.first(where: { $0.category == .trashBins })?.isEnabled ?? true
+            updatedCats.append(CategorySummary(category: .trashBins, totalSize: trashSize, items: trashItems, isEnabled: trashEnabled))
             
             self.categories = updatedCats
             self.ghostDaemons = ghosts
@@ -203,6 +237,12 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         }
         
         SystemRules.shared.flushDNS()
+        
+        // 2. Hayalet Servisler ve Yetim Ajanlar (Seçiliyse temizlenir)
+        if isGhostDaemonsEnabled && !ghostDaemons.isEmpty {
+            await updateTask("Hayalet servisler ve yetim ajanlar arındırılıyor...", phase: .ghostDaemons)
+            removeAllGhostDaemons()
+        }
         
         await MainActor.run {
             self.isCleaning = false

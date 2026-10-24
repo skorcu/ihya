@@ -998,10 +998,56 @@ public struct MainView: View {
                 .transition(.opacity)
             }
             
+            // Kategori Seçim & Toplu İşlem Çubuğu (Tümünü Seç / Tümünü Kaldır)
+            if (engine.currentPhase == .completed || engine.categories.contains(where: { $0.totalSize > 0 })) && !engine.hasCleaned && !engine.isScanning {
+                HStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "38BDF8"))
+                        Text("Temizlenecek Kategorileri Seçin")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white.opacity(0.85))
+                        Text("• İşareti kaldırılanlar atlanır, asla silinmez")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.45))
+                    }
+                    
+                    Spacer()
+                    
+                    Button(action: {
+                        let newState = !engine.areAllCategoriesEnabled
+                        engine.toggleAllCategories(enabled: newState)
+                        HapticManager.shared.triggerClick()
+                    }) {
+                        HStack(spacing: 5) {
+                            Image(systemName: engine.areAllCategoriesEnabled ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 11, weight: .bold))
+                            Text(engine.areAllCategoriesEnabled ? "Tümünü Kaldır" : "Tümünü Seç")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        .foregroundColor(Color(hex: "38BDF8"))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "0284C7").opacity(0.18))
+                        .cornerRadius(7)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 7)
+                                .stroke(Color(hex: "38BDF8").opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 4)
+                .padding(.bottom, 2)
+                .transition(.opacity)
+            }
+            
             // ÜST BENTO SIRASI (3 KART)
             HStack(spacing: 16) {
                 // 1. Kart: Sistem Temizliği
                 let sysCat = engine.categories.first(where: { $0.category == .systemJunk })
+                let isSysSelected = sysCat?.isEnabled ?? true
                 let isSysActive = engine.currentPhase == .systemJunk
                 let isSysDone = engine.currentPhase != .idle && engine.currentPhase != .systemJunk
                 let isSysCleaned = engine.hasCleaned && !engine.isScanning
@@ -1020,13 +1066,17 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Sistem Arınması",
                     subtitle: isSysActive ? "Çöpler Taranıyor..." : (sysCat?.totalSize ?? 0 > 0 ? sysCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isSysActive ? "Taranıyor..." : (isSysCleaned ? "Arındırıldı" : (isSysDone ? "Açılabilir Alan" : "Önbellek & Günlükler")),
+                    statusText: isSysActive ? "Taranıyor..." : (isSysCleaned ? "Arındırıldı" : (!isSysSelected ? "Atlandı" : (isSysDone ? "Açılabilir Alan" : "Önbellek & Günlükler"))),
                     isCompleted: isSysDone && (sysCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
                     isCleaned: isSysCleaned,
                     isActive: isSysActive,
                     emblemStyle: .emerald,
                     emblemIcon: "sparkles",
-                    itemsBreakdown: sysBreakdown
+                    itemsBreakdown: sysBreakdown,
+                    isSelected: isSysSelected,
+                    onToggleSelection: {
+                        engine.toggleCategoryEnabled(.systemJunk)
+                    }
                 ) {
                     if let c = sysCat {
                         withAnimation(.spring()) { selectedCategoryForXRay = c }
@@ -1037,6 +1087,7 @@ public struct MainView: View {
                 
                 // 2. Kart: Tarayıcı & Web Kasası
                 let browserCat = engine.categories.first(where: { $0.category == .browserCaches })
+                let isBrowserSelected = browserCat?.isEnabled ?? true
                 let isBrowserActive = engine.currentPhase == .browserCaches
                 let isBrowserDone = engine.currentPhase != .idle && engine.currentPhase != .systemJunk && engine.currentPhase != .browserCaches
                 let isBrowserCleaned = engine.hasCleaned && !engine.isScanning
@@ -1055,13 +1106,17 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Tarayıcı & Web",
                     subtitle: isBrowserActive ? "Web Taranıyor..." : (browserCat?.totalSize ?? 0 > 0 ? browserCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isBrowserActive ? "Taranıyor..." : (isBrowserCleaned ? "Arındırıldı" : (isBrowserDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Safari, Chrome, Brave"))),
+                    statusText: isBrowserActive ? "Taranıyor..." : (isBrowserCleaned ? "Arındırıldı" : (!isBrowserSelected ? "Atlandı" : (isBrowserDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Safari, Chrome, Brave")))),
                     isCompleted: isBrowserDone && (browserCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
                     isCleaned: isBrowserCleaned,
                     isActive: isBrowserActive,
                     emblemStyle: .cyan,
                     emblemIcon: "globe",
-                    itemsBreakdown: browserBreakdown
+                    itemsBreakdown: browserBreakdown,
+                    isSelected: isBrowserSelected,
+                    onToggleSelection: {
+                        engine.toggleCategoryEnabled(.browserCaches)
+                    }
                 ) {
                     if let c = browserCat {
                         withAnimation(.spring()) { selectedCategoryForXRay = c }
@@ -1074,6 +1129,7 @@ public struct MainView: View {
                 .frame(maxWidth: .infinity)
                 
                 // 3. Kart: Uygulama & Güncelleme
+                let isUpSelected = engine.isAppUpdatesEnabled
                 let isUpActive = engine.currentPhase == .appLipo && engine.isScanning
                 let isUpDone = engine.currentPhase == .completed
                 let updatesCount = engine.availableUpdates.count
@@ -1121,14 +1177,18 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Uygulama & Güncelleme",
                     subtitle: upSubtitle,
-                    statusText: upStatusText,
+                    statusText: !isUpSelected ? "Atlandı" : upStatusText,
                     isCompleted: isUpDone,
                     isCleaned: isUpCleaned,
                     isActive: isUpActive,
                     emblemStyle: updatesCount > 0 ? .sapphire : (isUpDone ? .emerald : .sapphire),
                     emblemIcon: updatesCount > 0 ? "arrow.triangle.2.circlepath.circle.fill" : (isUpDone ? "checkmark.seal.fill" : "arrow.triangle.2.circlepath.circle.fill"),
                     itemsBreakdown: updateBreakdown,
-                    reviewButtonTitle: updatesCount > 0 ? "Güncelle" : "İncele"
+                    reviewButtonTitle: updatesCount > 0 ? "Güncelle" : "İncele",
+                    isSelected: isUpSelected,
+                    onToggleSelection: {
+                        engine.isAppUpdatesEnabled.toggle()
+                    }
                 ) {
                     selectedTab = .appUpdater
                     HapticManager.shared.triggerClick()
@@ -1140,6 +1200,7 @@ public struct MainView: View {
             // ALT BENTO SIRASI (3 KART)
             HStack(spacing: 16) {
                 // 4. Kart: Hayalet Servisler
+                let isGhostSelected = engine.isGhostDaemonsEnabled
                 let isGhostActive = engine.currentPhase == .ghostDaemons
                 let isGhostDone = engine.currentPhase == .duplicates || engine.currentPhase == .appLipo || engine.currentPhase == .completed
                 let isGhostCleaned = engine.hasCleaned && !engine.isScanning
@@ -1158,13 +1219,17 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Hayalet Servisler",
                     subtitle: isGhostActive ? "Ajanlar İnceleniyor..." : "\(engine.ghostDaemons.count) Tehdit",
-                    statusText: isGhostActive ? "Taranıyor..." : (isGhostCleaned ? "Temizlendi" : (isGhostDone ? "Temizlenmeye Hazır" : (engine.isScanning ? "Sırada bekliyor..." : "Pil Koruması Tam"))),
+                    statusText: isGhostActive ? "Taranıyor..." : (isGhostCleaned ? "Temizlendi" : (!isGhostSelected ? "Atlandı" : (isGhostDone ? "Temizlenmeye Hazır" : (engine.isScanning ? "Sırada bekliyor..." : "Pil Koruması Tam")))),
                     isCompleted: isGhostDone,
                     isCleaned: isGhostCleaned,
                     isActive: isGhostActive,
                     emblemStyle: .violet,
                     emblemIcon: "bolt.shield.fill",
-                    itemsBreakdown: ghostBreakdown
+                    itemsBreakdown: ghostBreakdown,
+                    isSelected: isGhostSelected,
+                    onToggleSelection: {
+                        engine.isGhostDaemonsEnabled.toggle()
+                    }
                 ) {
                     selectedTab = .ghostDaemons
                     HapticManager.shared.triggerClick()
@@ -1173,6 +1238,7 @@ public struct MainView: View {
 
                 // 5. Kart: Uygulama Artıkları (Yetim Kayıtlar)
                 let orphanCat = engine.categories.first(where: { $0.category == .appResidues })
+                let isOrphanSelected = orphanCat?.isEnabled ?? true
                 let isOrphanActive = engine.currentPhase == .appLipo && engine.isScanning
                 let isOrphanDone = engine.currentPhase == .completed
                 let isOrphanCleaned = engine.hasCleaned && !engine.isScanning
@@ -1192,13 +1258,17 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Uygulama Artıkları",
                     subtitle: isOrphanActive ? "Kalıntılar Taranıyor..." : (orphanSize > 0 ? orphanCat!.formattedSize : "Artık Kayıt Yok"),
-                    statusText: isOrphanActive ? "Taranıyor..." : (isOrphanCleaned ? "Arındırıldı" : (orphanSize > 0 ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Silinmiş Program Artıkları"))),
+                    statusText: isOrphanActive ? "Taranıyor..." : (isOrphanCleaned ? "Arındırıldı" : (!isOrphanSelected ? "Atlandı" : (orphanSize > 0 ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Silinmiş Program Artıkları")))),
                     isCompleted: isOrphanDone && orphanSize > 0,
                     isCleaned: isOrphanCleaned,
                     isActive: isOrphanActive,
                     emblemStyle: .rose,
                     emblemIcon: "shippingbox.and.arrow.backward.fill",
-                    itemsBreakdown: orphanBreakdown
+                    itemsBreakdown: orphanBreakdown,
+                    isSelected: isOrphanSelected,
+                    onToggleSelection: {
+                        engine.toggleCategoryEnabled(.appResidues)
+                    }
                 ) {
                     if let c = orphanCat, c.totalSize > 0 {
                         withAnimation(.spring()) { selectedCategoryForXRay = c }
@@ -1212,6 +1282,7 @@ public struct MainView: View {
                 
                 // 6. Kart: Geliştirici Kasası
                 let devCat = engine.categories.first(where: { $0.category == .developerVault })
+                let isDevSelected = devCat?.isEnabled ?? true
                 let isDevActive = engine.currentPhase == .developerVault
                 let isDevDone = engine.currentPhase == .completed
                 let isDevCleaned = engine.hasCleaned && !engine.isScanning
@@ -1230,13 +1301,17 @@ public struct MainView: View {
                 BentoCardView(
                     title: "Geliştirici Kasası",
                     subtitle: isDevActive ? "Önbellekler Taranıyor..." : (devCat?.totalSize ?? 0 > 0 ? devCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isDevActive ? "Taranıyor..." : (isDevCleaned ? "Arındırıldı" : (isDevDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Xcode, Docker, Node"))),
+                    statusText: isDevActive ? "Taranıyor..." : (isDevCleaned ? "Arındırıldı" : (!isDevSelected ? "Atlandı" : (isDevDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Xcode, Docker, Node")))),
                     isCompleted: isDevDone && (devCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
                     isCleaned: isDevCleaned,
                     isActive: isDevActive,
                     emblemStyle: .amber,
                     emblemIcon: "hammer.fill",
-                    itemsBreakdown: devBreakdown
+                    itemsBreakdown: devBreakdown,
+                    isSelected: isDevSelected,
+                    onToggleSelection: {
+                        engine.toggleCategoryEnabled(.developerVault)
+                    }
                 ) {
                     if let c = devCat {
                         withAnimation(.spring()) { selectedCategoryForXRay = c }
@@ -1285,6 +1360,10 @@ public struct MainView: View {
         if engine.isCleaning { return "Arındırılıyor..." }
         if engine.hasCleaned { return "Yeniden Tara" }
         if engine.totalReclaimableBytes > 0 { return "Arındır (\(engine.formattedTotalReclaimable))" }
+        if engine.isGhostDaemonsEnabled && !engine.ghostDaemons.isEmpty {
+            return "Arındır (\(engine.ghostDaemons.count) Tehdit)"
+        }
+        if engine.currentPhase == .completed { return "Kategori Seçin" }
         return "Sistemi Tara"
     }
     
@@ -1292,7 +1371,8 @@ public struct MainView: View {
         if engine.isScanning { return "stop.fill" }
         if engine.isCleaning { return "sparkles" }
         if engine.hasCleaned { return "arrow.clockwise" }
-        if engine.totalReclaimableBytes > 0 { return "sparkles" }
+        if engine.totalReclaimableBytes > 0 || (engine.isGhostDaemonsEnabled && !engine.ghostDaemons.isEmpty) { return "sparkles" }
+        if engine.currentPhase == .completed { return "hand.tap" }
         return "radar"
     }
     
@@ -1300,7 +1380,7 @@ public struct MainView: View {
         if engine.isScanning { return .dangerStop }
         if engine.isCleaning { return .freshMint }
         if engine.hasCleaned { return .successEmerald }
-        if engine.totalReclaimableBytes > 0 { return .successEmerald }
+        if engine.totalReclaimableBytes > 0 || (engine.isGhostDaemonsEnabled && !engine.ghostDaemons.isEmpty) { return .successEmerald }
         return .primaryViolet
     }
     
