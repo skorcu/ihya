@@ -48,6 +48,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
 public struct MainView: View {
     @StateObject private var engine = CleanerEngine.shared
     @StateObject private var licenseManager = LicenseManager.shared
+    @ObservedObject private var updateChecker = IhyaUpdateChecker.shared
     @ObservedObject private var dupEngine = DuplicateFinderEngine.shared
     @State private var selectedTab: AppTab = .smartClean
     @State private var selectedCategoryForXRay: CategorySummary? = nil
@@ -373,6 +374,38 @@ public struct MainView: View {
                     }
                     
                     Spacer()
+                    
+                    if updateChecker.updateAvailable {
+                        Button(action: {
+                            updateChecker.performDirectAutoUpdate()
+                        }) {
+                            HStack(spacing: 3) {
+                                if updateChecker.isUpdating {
+                                    ProgressView().scaleEffect(0.5).frame(width: 10, height: 10)
+                                    Text("...")
+                                        .font(.system(size: 9, weight: .bold))
+                                } else {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 8, weight: .bold))
+                                    Text("v\(updateChecker.latestVersion)")
+                                        .font(.system(size: 9, weight: .bold))
+                                }
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "38BDF8"), Color(hex: "2563EB")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Yeni sürümü indirip otomatik kurmak için tıklayın")
+                    }
                 }
             }
             .padding(14)
@@ -1614,6 +1647,88 @@ public struct MainView: View {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
                 
+                // İhyâ Sürüm ve Otomatik Güncelleme Kartı
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("İhyâ Sürüm ve Güncelleme")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Mevcut: v\(updateChecker.currentVersion) • Apple Silicon & Intel Universal 2")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.65))
+                        }
+                        
+                        Spacer()
+                        
+                        if updateChecker.updateAvailable {
+                            Text("YENİ SÜRÜM v\(updateChecker.latestVersion)")
+                                .font(.system(size: 10, weight: .black))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color(hex: "10B981"))
+                                .foregroundColor(.white)
+                                .cornerRadius(4)
+                        } else {
+                            Text("GÜNCEL")
+                                .font(.system(size: 10, weight: .black))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(Color.white.opacity(0.12))
+                                .foregroundColor(.white.opacity(0.8))
+                                .cornerRadius(4)
+                        }
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            updateChecker.checkForUpdates(silent: false)
+                        }) {
+                            HStack(spacing: 6) {
+                                if updateChecker.isChecking {
+                                    ProgressView().scaleEffect(0.6).frame(width: 12, height: 12)
+                                    Text("Denetleniyor...")
+                                } else {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Güncellemeleri Denetle")
+                                }
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(updateChecker.isChecking || updateChecker.isUpdating)
+                        
+                        if updateChecker.updateAvailable {
+                            Button(action: {
+                                updateChecker.performDirectAutoUpdate()
+                            }) {
+                                HStack(spacing: 6) {
+                                    if updateChecker.isUpdating {
+                                        ProgressView().scaleEffect(0.6).frame(width: 12, height: 12)
+                                        Text(updateChecker.updateStatusText.isEmpty ? "Yükleniyor..." : updateChecker.updateStatusText)
+                                    } else {
+                                        Image(systemName: "sparkles")
+                                        Text("v\(updateChecker.latestVersion) Tek Tıkla Güncelle")
+                                    }
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    }
+                    
+                    if let msg = updateChecker.checkCompletedMessage {
+                        Text(msg)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(Color(hex: "38BDF8"))
+                    }
+                }
+                .padding(18)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+
                 // Cihaz ve Mimari Bilgisi
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Cihaz Güvenliği & Çevrimdışı Parmak İzi")

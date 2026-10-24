@@ -16,6 +16,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Cihaz telemetri ve canlı HWID lisans senkronizasyonu
         TelemetryManager.shared.sendHeartbeat()
         
+        // Merkezi Sürüm & Otomatik Güncelleme Motoru (3 sn sonra başlar)
+        IhyaUpdateChecker.shared.startPeriodicChecks()
+        
         LegalNoticeWindow.shared.showIfNeeded { [weak self] in
             Task { @MainActor in
                 self?.openMainWindow()
