@@ -4,6 +4,7 @@ import IhyaCore
 
 public struct AppUpdaterView: View {
     @ObservedObject private var engine = CleanerEngine.shared
+    @ObservedObject private var updaterEngine = AppUpdaterEngine.shared
     @State private var updates: [AppUpdateItem] = []
     @State private var totalAppsCount: Int = 0
     @State private var isScanning: Bool = false
@@ -218,16 +219,18 @@ public struct AppUpdaterView: View {
                     
                     Spacer()
                     
-                    // Tümünü Güncelle Butonu
+                    // Tümünü Güncelle Butonu (Tek Tıkla Sıralı Otomatik Güncelleme)
                     Button(action: {
-                        for item in updates {
-                            AppUpdaterEngine.shared.openUpdate(for: item)
+                        Task {
+                            await updaterEngine.updateAll(items: updates)
+                            HapticManager.shared.triggerSuccess()
                         }
+                        HapticManager.shared.triggerClick()
                     }) {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.down.circle.fill")
                                 .font(.system(size: 12, weight: .bold))
-                            Text("Tümünü Güncelle (\(updates.count))")
+                            Text("Tümünü Tek Tıkla Güncelle (\(updates.count))")
                                 .font(.system(size: 12, weight: .bold))
                         }
                         .padding(.horizontal, 14)
@@ -341,24 +344,8 @@ public struct AppUpdaterView: View {
                 .buttonStyle(.plain)
             }
             
-            // Güncelle Butonu
-            Button(action: {
-                AppUpdaterEngine.shared.openUpdate(for: item)
-                HapticManager.shared.triggerClick()
-            }) {
-                HStack(spacing: 5) {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("Güncelle")
-                        .font(.system(size: 11, weight: .bold))
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(Color(hex: "0284C7"))
-                .foregroundColor(.white)
-                .cornerRadius(6)
-            }
-            .buttonStyle(.plain)
+            // Tek Tıkla Otomatik Güncelleme Buton Grubu
+            updateActionView(for: item)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -370,6 +357,112 @@ public struct AppUpdaterView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+    }
+    
+    @ViewBuilder
+    private func updateActionView(for item: AppUpdateItem) -> some View {
+        let status = updaterEngine.updatingStatuses[item.id] ?? .idle
+        
+        switch status {
+        case .idle:
+            Button(action: {
+                Task {
+                    await updaterEngine.performOneClickUpdate(for: item)
+                    HapticManager.shared.triggerSuccess()
+                }
+                HapticManager.shared.triggerClick()
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Tek Tıkla Güncelle")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color(hex: "0284C7"))
+                .foregroundColor(.white)
+                .cornerRadius(6)
+            }
+            .buttonStyle(.plain)
+            
+        case .downloading(let progress):
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.55)
+                    .frame(width: 12, height: 12)
+                Text("%\(Int(progress * 100)) İndiriliyor")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundColor(Color(hex: "38BDF8"))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(hex: "0284C7").opacity(0.3))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(hex: "38BDF8").opacity(0.4), lineWidth: 1)
+            )
+            
+        case .installing:
+            HStack(spacing: 6) {
+                ProgressView()
+                    .scaleEffect(0.55)
+                    .frame(width: 12, height: 12)
+                Text("Kuruluyor...")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(Color(hex: "FDE047"))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color(hex: "CA8A04").opacity(0.25))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(hex: "FDE047").opacity(0.4), lineWidth: 1)
+            )
+            
+        case .completed:
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.green)
+                Text("Güncellendi")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(.green)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.green.opacity(0.18))
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.green.opacity(0.35), lineWidth: 1)
+            )
+            
+        case .failed(let errorMsg):
+            Button(action: {
+                updaterEngine.openUpdate(for: item)
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "safari")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Manuel İndir")
+                        .font(.system(size: 10, weight: .bold))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color.red.opacity(0.2))
+                .foregroundColor(.red)
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.red.opacity(0.35), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Otomatik kurulum hatası: \(errorMsg). Manuel indirmek için tıklayın.")
+        }
     }
     
     private func startScan() {

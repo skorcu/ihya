@@ -141,44 +141,16 @@ chmod +x "$HOME/.local/bin/ihya"
 # 6. DMG Paketleme (Spotlight'ın geçici dizini indekslemesini önlemek için .noindex kullanılır)
 echo "Son kullanıcı için DMG paketi üretiliyor..."
 DMG_STAGE="$DIR/dist/build.noindex/dmg_stage"
-rm -rf "$DMG_STAGE"
+rm -rf "$DIR/dist/build.noindex"
 mkdir -p "$DMG_STAGE"
 
 cp -R "$APP_DIR" "$DMG_STAGE/İhyâ.app"
-ln -s /Applications "$DMG_STAGE/Uygulamalar (Applications)"
-
-cat << 'EOF' > "$DMG_STAGE/1-Tıkla İhyâ'yı Kur ve Başlat.command"
-#!/bin/bash
-clear
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-echo "============================================="
-echo "  İHYÂ - Otomatik Kurulum & Başlatma"
-echo "============================================="
-echo ""
-echo "📦 1/3 Eski İhyâ sürümü kapatılıyor..."
-killall IhyaApp 2>/dev/null || true
-sleep 0.5
-
-echo "📁 2/3 İhyâ uygulaması /Applications klasörüne kuruluyor..."
-rm -rf "/Applications/İhyâ.app"
-cp -R "$DIR/İhyâ.app" "/Applications/İhyâ.app"
-
-echo "🔓 3/3 macOS güvenlik ve karantina onayları tamamlanıyor..."
-xattr -cr "/Applications/İhyâ.app" 2>/dev/null || true
-xattr -rd com.apple.quarantine "/Applications/İhyâ.app" 2>/dev/null || true
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/İhyâ.app" 2>/dev/null || true
-
-echo ""
-echo "✅ Kurulum başarıyla tamamlandı!"
-echo "🚀 İhyâ başlatılıyor..."
-sleep 0.5
-open -a "/Applications/İhyâ.app"
-exit 0
-EOF
-chmod +x "$DMG_STAGE/1-Tıkla İhyâ'yı Kur ve Başlat.command"
+ln -s /Applications "$DMG_STAGE/Applications"
 
 DMG_OUTPUT="$DIR/dist/Ihya.dmg"
 rm -f "$DMG_OUTPUT"
+sync
+sleep 1
 
 hdiutil create -volname "İhyâ" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_OUTPUT"
 rm -rf "$DIR/dist/build.noindex"
