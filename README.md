@@ -104,7 +104,13 @@ Canlı Unified RAM göstergesi, inaktif bellek boşaltma (Memory Purge), APFS ye
 
 ## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
 
-### [v1.5.1] — 24 Ekim 2026 (Apple Noter Onaylı Güncel Sürüm)
+### [v1.5.2] — 24 Ekim 2026 (Apple Noter Onaylı Güncel Sürüm)
+- **macOS TCC & Tam Disk Erişimi Köprüsü (FDAChecker):** macOS Sonoma ve Sequoia güvenlik kurallarına tam uyumlu otomatik TCC ön-kaydı, korumalı yol erişim tetiklemesi ve canlı izin algılama mimarisi entegre edildi.
+- **Finder Sürükle-Bırak Entegrasyonu:** Sistem Ayarları'nda yeni uygulamaların görünmeme durumuna karşı tek tıkla Finder'da İhyâ'yı seçip pencereye sürükleme köprüsü ve 3 adımlı interaktif görsel rehber eklendi.
+- **Ayarlar İzin Paneli:** Ayarlar & Lisans sekmesine canlı "macOS Güvenlik ve Tam Disk Erişimi" yönetim kartı eklendi.
+- **Apple Noter Onayı (Stapled Ticket):** Apple Developer ID ile imzalanmış ve resmi Apple sunucularından noter güvenlik damgası almıştır. Gatekeeper uyarısı vermeden doğrudan açılır.
+
+### [v1.5.1] — 24 Ekim 2026
 - **Tek Tıkla Otomatik Güncelleme Motoru (IhyaUpdateChecker):** Kâşif mimarisinde arka plan sürüm kontrolü ve tek tıkla atomik kurulum yeteneği getirildi.
 - **15 Günlük Ücretsiz Pro Deneme:** macOS Keychain ile korunan 15 günlük tam Pro deneme sürümü, canlı gün sayacı ve saat hilesi koruması entegre edildi.
 - **Güvenlik & Gizlilik Koruma:** Kapalı devre lisanslama, hassas veri koruması ve donanım kimliği (HWID) optimizasyonları tamamlandı.
