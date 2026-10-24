@@ -108,6 +108,10 @@ public final class DuplicateFinderEngine: ObservableObject {
     @Published public var duplicateGroups: [DuplicateGroup] = []
     @Published public var cachedFolderSummaries: [FolderDuplicateSummary] = []
     @Published public var scanTargets: [ScanTargetItem] = []
+    @Published public var selectedFilter: FileCategoryType = .all
+    @Published public var isShowingFolderReport: Bool = false
+    @Published public var selectedFolderFilter: String? = nil
+    @Published public var protectedFolderPaths: Set<String> = []
     
     private var currentScanTask: Task<Void, Never>? = nil
     

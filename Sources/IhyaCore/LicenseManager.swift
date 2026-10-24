@@ -4,6 +4,7 @@ import Combine
 
 public enum LicenseTier: String, Codable, Sendable {
     case free = "Ücretsiz"
+    case trial = "Pro Deneme (15 Gün)"
     case proLifetime = "İhyâ Pro (Ömür Boyu)"
 }
 
@@ -22,12 +23,19 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
     private let licenseKeyPrefKey = "ihya_pro_license_key"
     private let licenseStatusPrefKey = "ihya_pro_license_active"
     private let promoStatusPrefKey = "ihya_promo_pro_active"
+    private let trialStartPrefKey = "ihya_trial_start_timestamp"
+    private let lastKnownTimePrefKey = "ihya_last_known_timestamp"
+    public static let trialTotalDays: Int = 15
     
     @Published public private(set) var activeLicenseKey: String = ""
     @Published public private(set) var hasPersonalLicense: Bool = false
     @Published public private(set) var isPromotionalProActive: Bool = false
+    @Published public private(set) var isTrialActive: Bool = false
+    @Published public private(set) var trialDaysRemaining: Int = 15
+    @Published public private(set) var isTrialExpired: Bool = false
+    @Published public private(set) var trialStartDate: Date? = nil
     @Published public private(set) var isProUnlocked: Bool = true
-    @Published public private(set) var licenseTier: LicenseTier = .proLifetime
+    @Published public private(set) var licenseTier: LicenseTier = .trial
     @Published public private(set) var hwidGrantTitle: String? = nil
     @Published public private(set) var hwidGrantExpiresAt: String? = nil
     
@@ -39,7 +47,50 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
         }
     }
     
+    private func initTrialState() {
+        let now = Date()
+        
+        var startDate = KeychainHelper.loadTrialStartDate()
+        if startDate == nil, let savedTs = defaults.object(forKey: trialStartPrefKey) as? Double {
+            startDate = Date(timeIntervalSince1970: savedTs)
+            KeychainHelper.saveTrialStartDate(startDate!)
+        }
+        
+        if startDate == nil {
+            startDate = now
+            KeychainHelper.saveTrialStartDate(now)
+            defaults.set(now.timeIntervalSince1970, forKey: trialStartPrefKey)
+        }
+        
+        self.trialStartDate = startDate
+        
+        let lastKnown = defaults.double(forKey: lastKnownTimePrefKey)
+        if lastKnown > 0 && now.timeIntervalSince1970 < (lastKnown - 3600) {
+            self.trialDaysRemaining = 0
+            self.isTrialActive = false
+            self.isTrialExpired = true
+            return
+        }
+        defaults.set(now.timeIntervalSince1970, forKey: lastKnownTimePrefKey)
+        
+        let trialDurationSeconds: TimeInterval = Double(Self.trialTotalDays) * 86400.0
+        let elapsed = now.timeIntervalSince(startDate!)
+        let remaining = trialDurationSeconds - elapsed
+        
+        if remaining > 0 {
+            self.trialDaysRemaining = max(1, Int(ceil(remaining / 86400.0)))
+            self.isTrialActive = true
+            self.isTrialExpired = false
+        } else {
+            self.trialDaysRemaining = 0
+            self.isTrialActive = false
+            self.isTrialExpired = true
+        }
+    }
+    
     private func loadSavedLicense() {
+        initTrialState()
+        
         if defaults.object(forKey: promoStatusPrefKey) != nil {
             self.isPromotionalProActive = defaults.bool(forKey: promoStatusPrefKey)
         } else {
@@ -68,12 +119,20 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
         self.hasPersonalLicense = true
         self.isProUnlocked = true
         self.licenseTier = .proLifetime
+        self.isTrialActive = false
     }
     
     public func updateProStatus() {
-        if hasPersonalLicense || isPromotionalProActive {
+        if hasPersonalLicense {
             self.isProUnlocked = true
             self.licenseTier = .proLifetime
+            self.isTrialActive = false
+        } else if isPromotionalProActive {
+            self.isProUnlocked = true
+            self.licenseTier = .proLifetime
+        } else if isTrialActive && trialDaysRemaining > 0 {
+            self.isProUnlocked = true
+            self.licenseTier = .trial
         } else {
             self.isProUnlocked = false
             self.licenseTier = .free

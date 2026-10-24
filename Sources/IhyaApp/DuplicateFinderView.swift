@@ -19,9 +19,18 @@ public struct DuplicateFinderView: View {
     
     // Filtreler & Sekmeler
     @State private var selectedFilter: FileCategoryType = .all
-    @State private var isShowingFolderReport: Bool = false
-    @State private var selectedFolderFilter: String? = nil
-    @State private var protectedFolderPaths: Set<String> = []
+    private var isShowingFolderReport: Bool {
+        get { dupEngine.isShowingFolderReport }
+        nonmutating set { dupEngine.isShowingFolderReport = newValue }
+    }
+    private var selectedFolderFilter: String? {
+        get { dupEngine.selectedFolderFilter }
+        nonmutating set { dupEngine.selectedFolderFilter = newValue }
+    }
+    private var protectedFolderPaths: Set<String> {
+        get { dupEngine.protectedFolderPaths }
+        nonmutating set { dupEngine.protectedFolderPaths = newValue }
+    }
     @State private var isTargetedForDrop: Bool = false
     @State private var selectedFileForPreview: DuplicateFile? = nil
     @State private var activeRetentionRule: RetentionRule = .keepOldest
@@ -621,9 +630,9 @@ public struct DuplicateFinderView: View {
                             HStack(spacing: 8) {
                                 Button(action: {
                                     if isProtected {
-                                        protectedFolderPaths.remove(summary.folderPath)
+                                        dupEngine.protectedFolderPaths.remove(summary.folderPath)
                                     } else {
-                                        protectedFolderPaths.insert(summary.folderPath)
+                                        dupEngine.protectedFolderPaths.insert(summary.folderPath)
                                         applyFolderRule(keepFolderPath: summary.folderPath)
                                     }
                                     // Sayfadan atma: Kullanıcı Klasörler sayfasında kalarak diğer klasörleri de koruyabilir
@@ -1077,6 +1086,129 @@ public struct DuplicateFinderView: View {
     }
 }
 
+// MARK: - Çift Dosya Küçük Resim & Video Önbelleği (Sıfır Donma, Işık Hızı)
+public final class DuplicateThumbnailCache: @unchecked Sendable {
+    public static let shared = DuplicateThumbnailCache()
+    private let cache = NSCache<NSString, NSImage>()
+    
+    private init() {
+        cache.countLimit = 600
+        cache.totalCostLimit = 150 * 1024 * 1024 // 150 MB max
+    }
+    
+    public func image(for path: String) -> NSImage? {
+        cache.object(forKey: path as NSString)
+    }
+    
+    public func setImage(_ image: NSImage, for path: String) {
+        cache.setObject(image, forKey: path as NSString)
+    }
+}
+
+// MARK: - Canlı Görsel & Video Küçük Resim Rozeti (36x36 Retina)
+public struct DuplicateThumbnailView: View {
+    let path: String
+    let size: CGFloat
+    
+    @State private var thumbnail: NSImage? = nil
+    
+    public init(path: String, size: CGFloat = 36) {
+        self.path = path
+        self.size = size
+    }
+    
+    private var isVideo: Bool {
+        let ext = (path as NSString).pathExtension.lowercased()
+        return ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext)
+    }
+    
+    private var isVisual: Bool {
+        let ext = (path as NSString).pathExtension.lowercased()
+        return ["jpg", "jpeg", "png", "heic", "webp", "gif", "tiff", "bmp", "pdf", "mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext)
+    }
+    
+    public var body: some View {
+        ZStack {
+            if let img = thumbnail {
+                Image(nsImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipped()
+            } else {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: path))
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: size * 0.72, height: size * 0.72)
+            }
+            
+            // Video oynatma rozeti (Minik şık play ikonu)
+            if isVideo && thumbnail != nil {
+                ZStack {
+                    Circle()
+                        .fill(Color.black.opacity(0.65))
+                        .frame(width: 14, height: 14)
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 6))
+                        .foregroundColor(.white)
+                        .offset(x: 0.5)
+                }
+                .padding(2)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            }
+        }
+        .frame(width: size, height: size)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+        )
+        .task(id: path) {
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        if let cached = DuplicateThumbnailCache.shared.image(for: path) {
+            self.thumbnail = cached
+            return
+        }
+        
+        guard isVisual else { return }
+        
+        // Hızlı doğrudan diskten yükleme (Resimler için 0 ms)
+        let ext = (path as NSString).pathExtension.lowercased()
+        if ["jpg", "jpeg", "png", "webp", "gif", "bmp"].contains(ext) {
+            if let direct = NSImage(contentsOfFile: path) {
+                DuplicateThumbnailCache.shared.setImage(direct, for: path)
+                self.thumbnail = direct
+                return
+            }
+        }
+        
+        // macOS QuickLook Thumbnail Generator (HEIC, PDF ve Videolar için)
+        let url = URL(fileURLWithPath: path)
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        let req = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: size * scale, height: size * scale),
+            scale: scale,
+            representationTypes: .thumbnail
+        )
+        
+        Task {
+            if let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: req) {
+                let img = rep.nsImage
+                DuplicateThumbnailCache.shared.setImage(img, for: path)
+                await MainActor.run {
+                    self.thumbnail = img
+                }
+            }
+        }
+    }
+}
+
 // MARK: - İkiz Grup Kartı (Modüler)
 struct DuplicateGroupCard: View {
     let group: DuplicateGroup
@@ -1181,6 +1313,14 @@ struct DuplicateFileRow: View {
                 .buttonStyle(.plain)
                 .help(file.isSelectedForDeletion ? "Silinmek üzere seçildi" : "Silmek için seçin")
             }
+            
+            // Canlı Görsel & Video Önizleme Rozeti
+            DuplicateThumbnailView(path: file.path, size: 36)
+                .onTapGesture {
+                    onClickRow()
+                    QuickLookHelper.shared.preview(path: file.path)
+                }
+                .help("Önizlemek için tıklayın (veya Boşluk tuşuna basın)")
             
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
@@ -1289,11 +1429,26 @@ struct VisualPreviewInspector: View {
                     .fill(Color.black.opacity(0.35))
                 
                 if let img = thumbnailImage {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxHeight: 180)
-                        .cornerRadius(8)
+                    ZStack {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxHeight: 180)
+                            .cornerRadius(8)
+                        
+                        let ext = (file.path as NSString).pathExtension.lowercased()
+                        if ["mp4", "mov", "m4v", "mkv", "avi", "webm"].contains(ext) {
+                            Circle()
+                                .fill(Color.black.opacity(0.6))
+                                .frame(width: 36, height: 36)
+                                .overlay(
+                                    Image(systemName: "play.fill")
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.white)
+                                        .offset(x: 1.5)
+                                )
+                        }
+                    }
                 } else {
                     VStack(spacing: 8) {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: file.path))
@@ -1398,16 +1553,25 @@ struct VisualPreviewInspector: View {
         .onAppear {
             loadThumbnail()
         }
+        .task(id: file.id) {
+            loadThumbnail()
+        }
         .onChange(of: file.id) { _, _ in
             loadThumbnail()
         }
     }
     
     private func loadThumbnail() {
+        if let cached = DuplicateThumbnailCache.shared.image(for: file.path) {
+            self.thumbnailImage = cached
+            return
+        }
+        
         thumbnailImage = nil
         let ext = (file.path as NSString).pathExtension.lowercased()
         if ["jpg", "jpeg", "png", "heic", "webp", "gif", "tiff", "bmp"].contains(ext) {
             if let direct = NSImage(contentsOfFile: file.path) {
+                DuplicateThumbnailCache.shared.setImage(direct, for: file.path)
                 self.thumbnailImage = direct
                 return
             }
@@ -1417,15 +1581,17 @@ struct VisualPreviewInspector: View {
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let req = QLThumbnailGenerator.Request(
             fileAt: url,
-            size: CGSize(width: 320, height: 220),
+            size: CGSize(width: 480, height: 320),
             scale: scale,
             representationTypes: .thumbnail
         )
-        QLThumbnailGenerator.shared.generateBestRepresentation(for: req) { rep, _ in
-            guard let rep = rep else { return }
-            let img = rep.nsImage
-            Task { @MainActor in
-                self.thumbnailImage = img
+        Task {
+            if let rep = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: req) {
+                let img = rep.nsImage
+                DuplicateThumbnailCache.shared.setImage(img, for: file.path)
+                await MainActor.run {
+                    self.thumbnailImage = img
+                }
             }
         }
     }

@@ -345,11 +345,11 @@ public struct MainView: View {
                                 .font(.system(size: 9, weight: .black))
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 2)
-                                .background(Color(hex: "7C3AED"))
+                                .background(Color(hex: licenseManager.hasPersonalLicense ? "7C3AED" : "2563EB"))
                                 .foregroundColor(.white)
                                 .cornerRadius(4)
                             
-                            Text(licenseManager.hwidGrantTitle ?? "Ömür Boyu VIP")
+                            Text(licenseManager.hasPersonalLicense ? (licenseManager.hwidGrantTitle ?? "Ömür Boyu VIP") : (licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "Pro"))
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.85))
                         }
@@ -1564,11 +1564,11 @@ public struct MainView: View {
                         
                         Spacer()
                         
-                        Text(licenseManager.licenseTier.rawValue)
+                        Text(licenseManager.hasPersonalLicense ? "Ömür Boyu VIP" : (licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) Gün)" : "Ücretsiz"))
                             .font(.system(size: 10, weight: .black))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
-                            .background(licenseManager.isProUnlocked ? Color(hex: "7C3AED") : Color.white.opacity(0.12))
+                            .background(licenseManager.hasPersonalLicense ? Color(hex: "7C3AED") : (licenseManager.isTrialActive ? Color(hex: "2563EB") : Color.white.opacity(0.12)))
                             .foregroundColor(.white)
                             .cornerRadius(4)
                     }
