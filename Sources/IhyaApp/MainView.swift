@@ -663,10 +663,17 @@ public struct MainView: View {
                 FloatingActionButton(
                     title: floatingButtonTitle,
                     icon: floatingButtonIcon,
-                    isPulsing: engine.isScanning,
+                    isPulsing: engine.isScanning || engine.isCleaning,
                     colorStyle: floatingButtonColorStyle
                 ) {
                     HapticManager.shared.triggerClick()
+                    if engine.isCleaning {
+                        return // Halihazırda temizleme işlemi sürüyor
+                    }
+                    if engine.hasCleaned {
+                        startSmartCleanScan()
+                        return
+                    }
                     if engine.totalReclaimableBytes > 0 && !engine.isScanning {
                         Task {
                             _ = await engine.performClean()
@@ -715,6 +722,52 @@ public struct MainView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
                         .stroke(Color(hex: "06B6D4").opacity(0.4), lineWidth: 1)
+                )
+                .transition(.opacity)
+            } else if engine.isCleaning {
+                // Canlı Arındırma İşlem Rozeti
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.65)
+                        .tint(Color(hex: "10B981"))
+                    Text("Arındırılıyor:")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(Color(hex: "34D399"))
+                    Text(engine.currentTaskName.isEmpty ? "Önbellekler temizleniyor..." : engine.currentTaskName)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(Color(hex: "064E3B").opacity(0.85))
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color(hex: "10B981").opacity(0.5), lineWidth: 1)
+                )
+                .transition(.opacity)
+            } else if engine.hasCleaned {
+                // Arındırma Tamamlandı Kutlama Rozeti
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(Color(hex: "10B981"))
+                    Text("Arındırma Başarıyla Tamamlandı!")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                    Text("• \(engine.formattedLastFreed) disk alanı hafifletildi")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(Color(hex: "34D399"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 7)
+                .background(Color(hex: "10B981").opacity(0.18))
+                .cornerRadius(20)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(Color(hex: "10B981").opacity(0.4), lineWidth: 1)
                 )
                 .transition(.opacity)
             }
@@ -975,18 +1028,24 @@ public struct MainView: View {
     
     private var floatingButtonTitle: String {
         if engine.isScanning { return "Durdur" }
+        if engine.isCleaning { return "Arındırılıyor..." }
+        if engine.hasCleaned { return "Yeniden Tara" }
         if engine.totalReclaimableBytes > 0 { return "Arındır (\(engine.formattedTotalReclaimable))" }
         return "Sistemi Tara"
     }
     
     private var floatingButtonIcon: String {
         if engine.isScanning { return "stop.fill" }
+        if engine.isCleaning { return "sparkles" }
+        if engine.hasCleaned { return "arrow.clockwise" }
         if engine.totalReclaimableBytes > 0 { return "sparkles" }
         return "radar"
     }
     
     private var floatingButtonColorStyle: FloatingActionButton.ColorStyle {
         if engine.isScanning { return .dangerStop }
+        if engine.isCleaning { return .freshMint }
+        if engine.hasCleaned { return .successEmerald }
         if engine.totalReclaimableBytes > 0 { return .successEmerald }
         return .primaryViolet
     }

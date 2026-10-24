@@ -120,6 +120,17 @@ public struct CategorySummary: Identifiable, Sendable {
         }
         return ByteCountFormatter.string(fromByteCount: totalSize, countStyle: .file)
     }
+    
+    public var selectedSize: Int64 {
+        items.filter { $0.isSelected }.reduce(0) { $0 + $1.size }
+    }
+    
+    public var formattedSelectedSize: String {
+        if selectedSize == 0 {
+            return "0 B"
+        }
+        return ByteCountFormatter.string(fromByteCount: selectedSize, countStyle: .file)
+    }
 }
 
 public struct DuplicateGroup: Identifiable, Sendable {

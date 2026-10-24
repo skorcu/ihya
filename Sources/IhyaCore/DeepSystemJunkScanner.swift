@@ -20,12 +20,13 @@ public final class DeepSystemJunkScanner: Sendable {
                     let sz = FastScanner.shared.getPathSize(path: bPath)
                     if sz > 50_000_000 { // 50 MB üzeri
                         items.append(CleanItem(
-                            name: "iOS Cihaz Yedeği (\(backupFolder.prefix(8))...)",
+                            name: "iPhone/iPad Telefon Yedeği (\(backupFolder.prefix(8))...)",
                             path: bPath,
                             size: sz,
                             category: .systemJunk,
-                            safety: .caution,
-                            itemDescription: "Bilgisayara yedeklenmiş iPhone/iPad yerel cihaz yedeği."
+                            safety: .protected,
+                            itemDescription: "⚠️ Önemli: Bilgisayara yedeklenmiş iPhone/iPad yerel telefon yedeğidir. Silindiğinde telefonunuzu bu yedekten geri yükleyemezsiniz.",
+                            isSelected: false // TELEFON YEDEĞİ ASLA OTOMATİK İŞARETLENMEZ!
                         ))
                     }
                 }
@@ -138,8 +139,9 @@ public final class DeepSystemJunkScanner: Sendable {
                     path: mailDownloads,
                     size: sz,
                     category: .systemJunk,
-                    safety: .safe,
-                    itemDescription: "E-postalardan açılmış ve diskte unutulmuş geçici dosya ekleri."
+                    safety: .caution,
+                    itemDescription: "E-postalardan açılmış dosya ekleri. (İhtiyacınız olabileceği için varsayılan olarak seçilmez).",
+                    isSelected: false
                 ))
             }
         }

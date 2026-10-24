@@ -3,6 +3,7 @@ import IhyaCore
 
 public struct XRayDrawerView: View {
     @ObservedObject private var engine = CleanerEngine.shared
+    @State private var itemPendingConfirmation: CleanItem? = nil
     let category: CategorySummary
     let onClose: () -> Void
     
@@ -74,15 +75,21 @@ public struct XRayDrawerView: View {
                 ScrollView {
                     LazyVStack(spacing: 8) {
                         ForEach(liveCategory.items) { item in
+                            let isPhoneBackup = item.path.contains("MobileSync/Backup")
+                            
                             Button(action: {
-                                engine.toggleItemSelection(categoryType: liveCategory.category, itemId: item.id)
-                                HapticManager.shared.triggerClick()
+                                if !item.isSelected && isPhoneBackup {
+                                    itemPendingConfirmation = item
+                                } else {
+                                    engine.toggleItemSelection(categoryType: liveCategory.category, itemId: item.id)
+                                    HapticManager.shared.triggerClick()
+                                }
                             }) {
                                 HStack(spacing: 12) {
                                     // Seçim Onay Kutusu
                                     Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
                                         .font(.system(size: 16))
-                                        .foregroundColor(item.isSelected ? .blue : .secondary)
+                                        .foregroundColor(item.isSelected ? (isPhoneBackup ? .orange : .blue) : .secondary)
                                     
                                     VStack(alignment: .leading, spacing: 3) {
                                         HStack(spacing: 6) {
@@ -91,14 +98,24 @@ public struct XRayDrawerView: View {
                                                 .foregroundColor(.primary)
                                                 .lineLimit(1)
                                             
-                                            // Güvenlik Düzeyi Rozeti
-                                            Text(item.safety.displayName)
-                                                .font(.system(size: 9, weight: .bold))
-                                                .padding(.horizontal, 5)
-                                                .padding(.vertical, 2)
-                                                .background(safetyColor(for: item.safety).opacity(0.15))
-                                                .foregroundColor(safetyColor(for: item.safety))
-                                                .cornerRadius(4)
+                                            if isPhoneBackup {
+                                                Text("⚠️ TELEFON YEDEĞİ")
+                                                    .font(.system(size: 8.5, weight: .black))
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 2)
+                                                    .background(Color.orange.opacity(0.18))
+                                                    .foregroundColor(.orange)
+                                                    .cornerRadius(4)
+                                            } else {
+                                                // Güvenlik Düzeyi Rozeti
+                                                Text(item.safety.displayName)
+                                                    .font(.system(size: 9, weight: .bold))
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 2)
+                                                    .background(safetyColor(for: item.safety).opacity(0.15))
+                                                    .foregroundColor(safetyColor(for: item.safety))
+                                                    .cornerRadius(4)
+                                            }
                                         }
                                         
                                         Text(item.path)
@@ -110,8 +127,8 @@ public struct XRayDrawerView: View {
                                         if !item.itemDescription.isEmpty {
                                             Text(item.itemDescription)
                                                 .font(.system(size: 9.5))
-                                                .foregroundColor(.secondary.opacity(0.8))
-                                                .lineLimit(1)
+                                                .foregroundColor(isPhoneBackup ? .orange.opacity(0.9) : .secondary.opacity(0.8))
+                                                .lineLimit(2)
                                         }
                                     }
                                     
@@ -129,12 +146,16 @@ public struct XRayDrawerView: View {
                                     
                                     Text(item.formattedSize)
                                         .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.primary)
+                                        .foregroundColor(isPhoneBackup && !item.isSelected ? .secondary : .primary)
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
-                                .background(Color(NSColor.controlBackgroundColor).opacity(0.35))
+                                .background(isPhoneBackup ? Color.orange.opacity(0.08) : Color(NSColor.controlBackgroundColor).opacity(0.35))
                                 .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(isPhoneBackup ? Color.orange.opacity(0.3) : Color.clear, lineWidth: 1)
+                                )
                             }
                             .buttonStyle(.plain)
                         }
@@ -143,7 +164,18 @@ public struct XRayDrawerView: View {
                 }
             }
         }
-        .frame(width: 400)
+        .frame(width: 420)
         .background(.ultraThinMaterial)
+        .alert(item: $itemPendingConfirmation) { item in
+            Alert(
+                title: Text("⚠️ Telefon Yedeği Uyarısı"),
+                message: Text("Bu işlem iPhone/iPad cihazınızın Mac'teki yerel yedeğini kalıcı olarak silecektir.\n\nTelefonunuzdaki kişisel veriler (fotoğraflar, WhatsApp, rehber) telefonda korunur ancak Mac üzerinden yedekten geri yükleme yapılamaz.\n\nYine de bu telefon yedeğini silinmek üzere işaretlemek istiyor musunuz?"),
+                primaryButton: .destructive(Text("Evet, İşaretle")) {
+                    engine.toggleItemSelection(categoryType: liveCategory.category, itemId: item.id)
+                    HapticManager.shared.triggerSuccess()
+                },
+                secondaryButton: .cancel(Text("Vazgeç"))
+            )
+        }
     }
 }

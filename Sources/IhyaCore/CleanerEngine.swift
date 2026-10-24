@@ -18,6 +18,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     @Published public private(set) var isScanning: Bool = false
     @Published public private(set) var isCleaning: Bool = false
     @Published public private(set) var hasCleaned: Bool = false
+    @Published public private(set) var lastFreedBytes: Int64 = 0
     @Published public private(set) var currentTaskName: String = ""
     @Published public private(set) var currentScanningPath: String = ""
     @Published public private(set) var currentPhase: ScanningPhase = .idle
@@ -34,8 +35,18 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         ByteCountFormatter.string(fromByteCount: totalReclaimableBytes, countStyle: .file)
     }
     
+    public var formattedLastFreed: String {
+        ByteCountFormatter.string(fromByteCount: lastFreedBytes, countStyle: .file)
+    }
+    
     private init() {
         resetCategories()
+    }
+    
+    public func recalculateTotalReclaimable() {
+        self.totalReclaimableBytes = self.categories.filter { $0.isEnabled }.reduce(0) { catSum, cat in
+            catSum + cat.selectedSize
+        }
     }
     
     public func resetCategories() {
@@ -136,9 +147,8 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             self.availableUpdates = updates
             self.totalInstalledAppsCount = totalApps
             
-            // Sadece arındırılabilir sistem çöpleri ve önbellekler dahil edilir (Şahsî dosyalar asla eklenmez)
-            let catTotal = updatedCats.reduce(0) { $0 + $1.totalSize }
-            self.totalReclaimableBytes = catTotal
+            // Sadece arındırılabilir ve seçili olan sistem çöpleri dahil edilir (Şahsî dosyalar & seçilmemiş yedekler sayılmaz)
+            self.recalculateTotalReclaimable()
             
             self.isScanning = false
             self.currentPhase = .completed
@@ -150,29 +160,43 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     public func performClean() async -> Int64 {
         await MainActor.run {
             self.isCleaning = true
+            self.hasCleaned = false
             self.currentTaskName = "Arındırma işlemi başladı..."
         }
         
         var freedBytes: Int64 = 0
         
-        for cat in categories where cat.isEnabled {
-            for item in cat.items where item.isSelected {
-                guard SafetyFilter.shared.isSafeToDelete(path: item.path) else { continue }
-                
-                await updateTask("Siliniyor: \(item.name)...", phase: .completed, path: item.path)
-                do {
-                    if cat.category == .trashBins {
-                        if let contents = try? FileManager.default.contentsOfDirectory(atPath: item.path) {
-                            for f in contents {
-                                let sub = (item.path as NSString).appendingPathComponent(f)
-                                try? FileManager.default.removeItem(atPath: sub)
-                            }
-                        }
-                    } else {
-                        try FileManager.default.removeItem(atPath: item.path)
+        for catIdx in 0..<categories.count {
+            guard categories[catIdx].isEnabled else { continue }
+            var remainingItems: [CleanItem] = []
+            
+            for item in categories[catIdx].items {
+                if item.isSelected {
+                    guard SafetyFilter.shared.isSafeToDelete(path: item.path) else {
+                        remainingItems.append(item)
+                        continue
                     }
-                    freedBytes += item.size
-                } catch {}
+                    
+                    await updateTask("Arındırılıyor: \(item.name)...", phase: .completed, path: item.path)
+                    
+                    let (success, freed) = safeRemoveItem(at: item.path, category: categories[catIdx].category)
+                    if success || freed > 0 {
+                        freedBytes += (freed > 0 ? freed : item.size)
+                    } else {
+                        var uncleaned = item
+                        uncleaned.isSelected = false
+                        remainingItems.append(uncleaned)
+                    }
+                } else {
+                    // Seçilmemiş öğeler (örneğin telefon yedeği veya korunmuş dosyalar) ASLA SİLİNMEZ!
+                    remainingItems.append(item)
+                }
+            }
+            
+            let updatedItems = remainingItems
+            await MainActor.run {
+                self.categories[catIdx].items = updatedItems
+                self.categories[catIdx].totalSize = updatedItems.reduce(0) { $0 + $1.size }
             }
         }
         
@@ -181,10 +205,10 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         await MainActor.run {
             self.isCleaning = false
             self.hasCleaned = true
+            self.lastFreedBytes = freedBytes
             self.currentTaskName = "Arındırma başarıyla tamamlandı!"
             self.currentScanningPath = ""
-            self.totalReclaimableBytes = max(0, self.totalReclaimableBytes - freedBytes)
-            self.resetCategories()
+            self.recalculateTotalReclaimable()
         }
         
         return freedBytes
@@ -203,31 +227,34 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             return 0
         }
         
-        let cat = categories[catIndex]
-        for item in cat.items where item.isSelected {
-            guard SafetyFilter.shared.isSafeToDelete(path: item.path) else { continue }
-            
-            await updateTask("Siliniyor: \(item.name)...", phase: .completed, path: item.path)
-            do {
-                if cat.category == .trashBins {
-                    if let contents = try? FileManager.default.contentsOfDirectory(atPath: item.path) {
-                        for f in contents {
-                            let sub = (item.path as NSString).appendingPathComponent(f)
-                            try? FileManager.default.removeItem(atPath: sub)
-                        }
-                    }
-                } else {
-                    try FileManager.default.removeItem(atPath: item.path)
+        var remainingItems: [CleanItem] = []
+        for item in categories[catIndex].items {
+            if item.isSelected {
+                guard SafetyFilter.shared.isSafeToDelete(path: item.path) else {
+                    remainingItems.append(item)
+                    continue
                 }
-                freedBytes += item.size
-            } catch {}
+                
+                await updateTask("Arındırılıyor: \(item.name)...", phase: .completed, path: item.path)
+                let (success, freed) = safeRemoveItem(at: item.path, category: categoryType)
+                if success || freed > 0 {
+                    freedBytes += (freed > 0 ? freed : item.size)
+                } else {
+                    var uncleaned = item
+                    uncleaned.isSelected = false
+                    remainingItems.append(uncleaned)
+                }
+            } else {
+                remainingItems.append(item)
+            }
         }
         
+        let updatedItems = remainingItems
         await MainActor.run {
             self.isCleaning = false
-            self.categories[catIndex].items.removeAll(where: { $0.isSelected })
-            self.categories[catIndex].totalSize = self.categories[catIndex].items.reduce(0) { $0 + $1.size }
-            self.totalReclaimableBytes = max(0, self.totalReclaimableBytes - freedBytes)
+            self.categories[catIndex].items = updatedItems
+            self.categories[catIndex].totalSize = updatedItems.reduce(0) { $0 + $1.size }
+            self.recalculateTotalReclaimable()
             self.currentTaskName = "\(categoryType.displayName) temizlendi."
             self.currentScanningPath = ""
             if self.totalReclaimableBytes == 0 {
@@ -236,6 +263,77 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         }
         
         return freedBytes
+    }
+    
+    private func safeRemoveItem(at path: String, category: CleanCategoryType) -> (success: Bool, freedBytes: Int64) {
+        let fm = FileManager.default
+        let home = NSHomeDirectory()
+        var isDir: ObjCBool = false
+        
+        guard fm.fileExists(atPath: path, isDirectory: &isDir) else {
+            return (true, 0)
+        }
+        
+        // Ana sistem/kullanıcı kök klasörlerinin kendisi silinmez, İÇERİĞİ silinir
+        let rootContainerFolders = [
+            (home as NSString).appendingPathComponent("Library/Logs"),
+            (home as NSString).appendingPathComponent("Library/Caches"),
+            (home as NSString).appendingPathComponent(".Trash")
+        ]
+        
+        if rootContainerFolders.contains(path) || category == .trashBins {
+            var freed: Int64 = 0
+            if let contents = try? fm.contentsOfDirectory(atPath: path) {
+                for file in contents {
+                    let subPath = (path as NSString).appendingPathComponent(file)
+                    let subSize = FastScanner.shared.getPathSize(path: subPath)
+                    do {
+                        try fm.removeItem(atPath: subPath)
+                        freed += subSize
+                    } catch {
+                        freed += removeDirectoryContents(at: subPath)
+                    }
+                }
+            }
+            return (true, freed)
+        }
+        
+        let size = FastScanner.shared.getPathSize(path: path)
+        do {
+            try fm.removeItem(atPath: path)
+            return (true, size)
+        } catch {
+            if isDir.boolValue {
+                let partialFreed = removeDirectoryContents(at: path)
+                try? fm.removeItem(atPath: path)
+                return (partialFreed > 0, partialFreed)
+            }
+            return (false, 0)
+        }
+    }
+    
+    private func removeDirectoryContents(at dirPath: String) -> Int64 {
+        let fm = FileManager.default
+        var freed: Int64 = 0
+        guard let files = try? fm.contentsOfDirectory(atPath: dirPath) else { return 0 }
+        
+        for file in files {
+            let full = (dirPath as NSString).appendingPathComponent(file)
+            var isSubDir: ObjCBool = false
+            if fm.fileExists(atPath: full, isDirectory: &isSubDir) {
+                let s = FastScanner.shared.getPathSize(path: full)
+                if isSubDir.boolValue {
+                    freed += removeDirectoryContents(at: full)
+                    try? fm.removeItem(atPath: full)
+                } else {
+                    do {
+                        try fm.removeItem(atPath: full)
+                        freed += s
+                    } catch {}
+                }
+            }
+        }
+        return freed
     }
     
     public func removeAllGhostDaemons() {
@@ -284,10 +382,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         guard let catIdx = categories.firstIndex(where: { $0.category == categoryType }) else { return }
         if let itemIdx = categories[catIdx].items.firstIndex(where: { $0.id == itemId }) {
             categories[catIdx].items[itemIdx].isSelected.toggle()
-            let catTotal = categories.filter { $0.isEnabled }.reduce(0) { catSum, cat in
-                catSum + cat.items.filter { $0.isSelected }.reduce(0) { $0 + $1.size }
-            }
-            self.totalReclaimableBytes = catTotal
+            self.recalculateTotalReclaimable()
         }
     }
     

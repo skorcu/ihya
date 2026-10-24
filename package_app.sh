@@ -79,9 +79,9 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.5.1</string>
+    <string>1.5.2</string>
     <key>CFBundleVersion</key>
-    <string>1.5.1</string>
+    <string>1.5.2</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -189,7 +189,7 @@ if [ -d "$WEB_OUT_DIR" ]; then
 fi
 
 echo "============================================="
-echo "  İHYÂ v1.5.1 Universal 2 Başarıyla Üretildi!"
+echo "  İHYÂ v1.5.2 Universal 2 Başarıyla Üretildi!"
 echo "  DMG Dosyası: $DMG_OUTPUT"
 echo "  Boyut: $(du -h "$DMG_OUTPUT" | cut -f1)"
 echo "============================================="
