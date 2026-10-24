@@ -137,6 +137,92 @@ public final class DeveloperRules: Sendable {
             }
         }
         
+        // 9. Python uv Paket & Derleme Önbelleği (~/.cache/uv)
+        let uvCache = (home as NSString).appendingPathComponent(".cache/uv")
+        if FileManager.default.fileExists(atPath: uvCache) {
+            let size = FastScanner.shared.getPathSize(path: uvCache)
+            if size > 10_000_000 {
+                items.append(CleanItem(
+                    name: "Python uv Önbelleği",
+                    path: uvCache,
+                    size: size,
+                    category: .developerVault,
+                    safety: .developer,
+                    itemDescription: "Hızlı Python paket yöneticisi (uv) indirme ve tekerlek (wheel) önbelleği"
+                ))
+            }
+        }
+        
+        // 10. Puppeteer Başsız Tarayıcı İndirmeleri (~/.cache/puppeteer)
+        let puppeteerCache = (home as NSString).appendingPathComponent(".cache/puppeteer")
+        if FileManager.default.fileExists(atPath: puppeteerCache) {
+            let size = FastScanner.shared.getPathSize(path: puppeteerCache)
+            if size > 20_000_000 {
+                items.append(CleanItem(
+                    name: "Puppeteer Tarayıcı İndirmeleri",
+                    path: puppeteerCache,
+                    size: size,
+                    category: .developerVault,
+                    safety: .developer,
+                    itemDescription: "Otomasyon için indirilmiş eski Chromium sürümleri"
+                ))
+            }
+        }
+        
+        // 11. PNPM Global Paket Deposu (~/.pnpm-store veya ~/Library/pnpm/store)
+        let pnpmPaths = [
+            (home as NSString).appendingPathComponent(".pnpm-store"),
+            (home as NSString).appendingPathComponent("Library/pnpm/store")
+        ]
+        for pPath in pnpmPaths {
+            if FileManager.default.fileExists(atPath: pPath) {
+                let size = FastScanner.shared.getPathSize(path: pPath)
+                if size > 50_000_000 {
+                    items.append(CleanItem(
+                        name: "PNPM Paket Deposu",
+                        path: pPath,
+                        size: size,
+                        category: .developerVault,
+                        safety: .developer,
+                        itemDescription: "pnpm ile indirilmiş içerik adresli paket deposu"
+                    ))
+                    break
+                }
+            }
+        }
+        
+        // 12. Rust Cargo Paket Önbelleği (~/.cargo/registry/cache)
+        let cargoCache = (home as NSString).appendingPathComponent(".cargo/registry/cache")
+        if FileManager.default.fileExists(atPath: cargoCache) {
+            let size = FastScanner.shared.getPathSize(path: cargoCache)
+            if size > 20_000_000 {
+                items.append(CleanItem(
+                    name: "Rust Cargo Crate Önbelleği",
+                    path: cargoCache,
+                    size: size,
+                    category: .developerVault,
+                    safety: .developer,
+                    itemDescription: "İndirilmiş Rust sandık (crate) paket arşivleri"
+                ))
+            }
+        }
+        
+        // 13. Bun Paket Önbelleği (~/.bun/install/cache)
+        let bunCache = (home as NSString).appendingPathComponent(".bun/install/cache")
+        if FileManager.default.fileExists(atPath: bunCache) {
+            let size = FastScanner.shared.getPathSize(path: bunCache)
+            if size > 20_000_000 {
+                items.append(CleanItem(
+                    name: "Bun Paket Önbelleği",
+                    path: bunCache,
+                    size: size,
+                    category: .developerVault,
+                    safety: .developer,
+                    itemDescription: "Bun çalışma zamanı bağımlılık önbelleği"
+                ))
+            }
+        }
+        
         return items
     }
 }

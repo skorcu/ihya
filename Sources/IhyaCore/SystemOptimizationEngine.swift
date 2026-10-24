@@ -288,12 +288,12 @@ public final class SystemOptimizationEngine: ObservableObject {
         }.value
     }
 
-    /// APFS Yerel Anlık Görüntülerini (Snapshots) Seyreltir
+    /// APFS Yerel Anlık Görüntülerini (Snapshots) Seyreltir (Agresif Urgency 4 ile kilitli blokları çözer)
     public func thinLocalSnapshots() async -> String {
         return await Task.detached(priority: .userInitiated) { () -> String in
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
-            process.arguments = ["thinlocalsnapshots", "/", "1000000000", "1"]
+            process.arguments = ["thinlocalsnapshots", "/", "100000000000", "4"]
             let pipe = Pipe()
             process.standardOutput = pipe
             try? process.run()
