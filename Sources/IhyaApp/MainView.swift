@@ -663,6 +663,7 @@ public struct MainView: View {
                 FloatingActionButton(
                     title: floatingButtonTitle,
                     icon: floatingButtonIcon,
+                    shortcutHint: engine.isScanning ? "Esc" : (engine.hasCleaned ? "⌘R" : "⌘↩"),
                     isPulsing: engine.isScanning || engine.isCleaning,
                     colorStyle: floatingButtonColorStyle
                 ) {
@@ -784,9 +785,9 @@ public struct MainView: View {
                         return c.items.prefix(3).map { ($0.name, $0.formattedSize) }
                     } else {
                         return [
-                            (name: "Kullanıcı Önbellekleri", size: isSysCleaned ? "Arındırıldı ✓" : "Önbellek & Çöp"),
-                            (name: "Sistem & Günlük Dosyaları", size: isSysCleaned ? "Arındırıldı ✓" : "Tanı Raporları"),
-                            (name: "Unutulmuş DMG Kalıpları", size: isSysCleaned ? "Arındırıldı ✓" : "Geçici Dosyalar")
+                            (name: "Kullanıcı Önbelleği", size: isSysCleaned ? "Arındırıldı ✓" : "Önbellek"),
+                            (name: "Sistem Günlükleri", size: isSysCleaned ? "Arındırıldı ✓" : "Raporlar"),
+                            (name: "İndirilen DMG'ler", size: isSysCleaned ? "Arındırıldı ✓" : "Kalıplar")
                         ]
                     }
                 }()
@@ -819,8 +820,8 @@ public struct MainView: View {
                         return c.items.prefix(3).map { ($0.name, $0.formattedSize) }
                     } else {
                         return [
-                            (name: "Safari WebKit Depolama", size: isBrowserCleaned ? "Arındırıldı ✓" : "Önbellek & Çerez"),
-                            (name: "Google Chrome & V8", size: isBrowserCleaned ? "Arındırıldı ✓" : "Servis Verileri"),
+                            (name: "Safari Web Deposu", size: isBrowserCleaned ? "Arındırıldı ✓" : "Önbellek"),
+                            (name: "Google Chrome & V8", size: isBrowserCleaned ? "Arındırıldı ✓" : "Veriler"),
                             (name: "Parolalar & Girişler", size: "Korunuyor ✓")
                         ]
                     }
@@ -857,24 +858,52 @@ public struct MainView: View {
                     if !engine.availableUpdates.isEmpty {
                         return engine.availableUpdates.prefix(3).map { ($0.appName, "v\($0.latestVersion)") }
                     } else {
+                        let countStr = totalApps > 0 ? "\(totalApps) Yazılım" : "Tüm Sistem"
                         return [
-                            (name: "Yüklü Sistem Yazılımları", size: "\(max(73, totalApps)) Yazılım"),
+                            (name: "Yüklü Sistem Yazılımları", size: "\(countStr) ✓"),
                             (name: "Sparkle Appcast Beslemeleri", size: "Güncel ✓"),
-                            (name: "Homebrew & DMG Paketleri", size: "Denetlendi ✓")
+                            (name: "Homebrew & Paket Takibi", size: "Denetlendi ✓")
                         ]
+                    }
+                }()
+                
+                let upSubtitle: String = {
+                    if isUpActive {
+                        return "Sürümler Taranıyor..."
+                    } else if updatesCount > 0 {
+                        return "\(updatesCount) Güncelleme Mevcut"
+                    } else if isUpDone {
+                        return "Tüm Yazılımlar Güncel"
+                    } else {
+                        return "\(totalApps > 0 ? "\(totalApps)" : "46") Yazılım Denetimi"
+                    }
+                }()
+                
+                let upStatusText: String = {
+                    if isUpActive {
+                        return "Taranıyor..."
+                    } else if updatesCount > 0 {
+                        return "Güncellemeye Hazır"
+                    } else if isUpDone {
+                        return "\(totalApps > 0 ? "\(totalApps) Yazılım" : "Tüm Sistem") Güncel ✓"
+                    } else if engine.isScanning {
+                        return "Sırada bekliyor..."
+                    } else {
+                        return "Sparkle & Paket Takibi"
                     }
                 }()
                 
                 BentoCardView(
                     title: "Uygulama & Güncelleme",
-                    subtitle: isUpActive ? "Sürümler Taranıyor..." : (updatesCount > 0 ? "\(updatesCount) Kritik Güncelleme" : "\(totalApps > 0 ? "\(totalApps)" : "73") Uygulama"),
-                    statusText: isUpActive ? "Taranıyor..." : (updatesCount > 0 ? "Güncellemeye Hazır" : (isUpDone ? "Tüm Uygulamalar Güncel" : (engine.isScanning ? "Sırada bekliyor..." : "Sparkle & Paket Takibi"))),
+                    subtitle: upSubtitle,
+                    statusText: upStatusText,
                     isCompleted: isUpDone,
                     isCleaned: isUpCleaned,
                     isActive: isUpActive,
-                    emblemStyle: .sapphire,
-                    emblemIcon: "arrow.triangle.2.circlepath.circle.fill",
-                    itemsBreakdown: updateBreakdown
+                    emblemStyle: updatesCount > 0 ? .sapphire : (isUpDone ? .emerald : .sapphire),
+                    emblemIcon: updatesCount > 0 ? "arrow.triangle.2.circlepath.circle.fill" : (isUpDone ? "checkmark.seal.fill" : "arrow.triangle.2.circlepath.circle.fill"),
+                    itemsBreakdown: updateBreakdown,
+                    reviewButtonTitle: updatesCount > 0 ? "Güncelle" : "İncele"
                 ) {
                     selectedTab = .appUpdater
                     HapticManager.shared.triggerClick()
@@ -894,9 +923,9 @@ public struct MainView: View {
                         return engine.ghostDaemons.prefix(3).map { ($0.label, "Yetim Ajan") }
                     } else {
                         return [
-                            (name: "LaunchAgents Ajanları", size: "0 Tehdit ✓"),
-                            (name: "LaunchDaemons Servisleri", size: "0 Tehdit ✓"),
-                            (name: "Arka Plan CPU/Pil Koruması", size: "Aktif ✓")
+                            (name: "LaunchAgents", size: "0 Tehdit ✓"),
+                            (name: "LaunchDaemons", size: "0 Tehdit ✓"),
+                            (name: "Pil Koruması", size: "Aktif ✓")
                         ]
                     }
                 }()
@@ -928,9 +957,9 @@ public struct MainView: View {
                         return c.items.prefix(3).map { ($0.name, $0.formattedSize) }
                     } else {
                         return [
-                            (name: "Silinmiş Program Artıkları", size: isOrphanCleaned ? "Arındırıldı ✓" : "Application Support"),
-                            (name: "Yetim Ayar Dosyaları", size: isOrphanCleaned ? "Arındırıldı ✓" : "Preferences (.plist)"),
-                            (name: "Eski Yazılım Kırıntıları", size: isOrphanCleaned ? "Arındırıldı ✓" : "Temiz ✓")
+                            (name: "Silinen Yazılımlar", size: isOrphanCleaned ? "Arındırıldı ✓" : "App Support"),
+                            (name: "Yetim Tercihler", size: isOrphanCleaned ? "Arındırıldı ✓" : ".plist"),
+                            (name: "Eski Kalıntılar", size: isOrphanCleaned ? "Arındırıldı ✓" : "Temiz ✓")
                         ]
                     }
                 }()
@@ -966,9 +995,9 @@ public struct MainView: View {
                         return c.items.prefix(3).map { ($0.name, $0.formattedSize) }
                     } else {
                         return [
-                            (name: "Xcode DerivedData", size: isDevCleaned ? "Arındırıldı ✓" : "Modül Önbelleği"),
-                            (name: "Docker & Simülatör İmajları", size: isDevCleaned ? "Arındırıldı ✓" : "Geçici Veriler"),
-                            (name: "Node / npm / Python Önbelleği", size: isDevCleaned ? "Arındırıldı ✓" : "Paket Deposu")
+                            (name: "Xcode DerivedData", size: isDevCleaned ? "Arındırıldı ✓" : "Önbellek"),
+                            (name: "Docker & Simülatör", size: isDevCleaned ? "Arındırıldı ✓" : "İmajlar"),
+                            (name: "npm, pip, Paketler", size: isDevCleaned ? "Arındırıldı ✓" : "Depolar")
                         ]
                     }
                 }()
@@ -1845,6 +1874,17 @@ public struct MainView: View {
                         }
                         .buttonStyle(.bordered)
                         .help("İhyâ uygulamasını Finder'da seçer. Açılan Sistem Ayarları penceresine doğrudan sürükleyip bırakabilirsiniz.")
+                        
+                        Button(action: {
+                            FDAChecker.openAppManagementSettings()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                Text("Uygulama Yönetimi İzni")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .help("macOS Uygulama Yönetimi ayarlarını açar. İhyâ'nın diğer yazılımları tek tıkla güncellemesi için bu listede aktif olmalıdır.")
                     }
                 }
                 .padding(18)

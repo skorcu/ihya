@@ -547,6 +547,9 @@ public final class LargeOldFilesEngine: ObservableObject {
         var deletedIds = Set<String>()
         
         for item in selectedList {
+            guard SafetyFilter.shared.isSafeForUserTrash(path: item.path) else {
+                continue
+            }
             let url = URL(fileURLWithPath: item.path)
             do {
                 try FileManager.default.trashItem(at: url, resultingItemURL: nil)
@@ -568,6 +571,9 @@ public final class LargeOldFilesEngine: ObservableObject {
     // MARK: - Askeri Seviye Kalıcı Dosya Öğütücü (Shredder)
     /// Dosyanın üzerine rastgele baytlar ve sıfırlar yazarak blokları geri getirilemez şekilde ezer ve unbind eder
     public func shredFile(at path: String) throws {
+        guard SafetyFilter.shared.isSafeForUserTrash(path: path) else {
+            throw NSError(domain: "IhyaSafetyError", code: 403, userInfo: [NSLocalizedDescriptionKey: "Korumalı sistem yolu öğütülemez."])
+        }
         let fileURL = URL(fileURLWithPath: path)
         let fm = FileManager.default
         

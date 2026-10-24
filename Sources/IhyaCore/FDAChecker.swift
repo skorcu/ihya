@@ -75,6 +75,13 @@ public final class FDAChecker: @unchecked Sendable {
         }
     }
     
+    /// macOS Sistem Ayarları'nı doğrudan Gizlilik & Güvenlik > Uygulama Yönetimi sekmesinde açar.
+    public static func openAppManagementSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AppBundles") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
     /// İhyâ uygulamasını Finder'da bizzat seçili olarak öne getirir (Sistem Ayarları'na sürükle-bırak için).
     public static func revealInFinder() {
         let bundleURL = Bundle.main.bundleURL

@@ -77,70 +77,97 @@ public struct BentoCardView: View {
                     )
                     .shadow(color: Color.black.opacity(isHovered ? 0.4 : 0.25), radius: isHovered ? 18 : 12, x: 0, y: isHovered ? 8 : 5)
                 
-                // Kart İçeriği
+                // Kart İçeriği (Tek ve Düzenli Akış)
                 VStack(alignment: .leading, spacing: 10) {
-                    // Üst Başlık & Durum
-                    HStack {
-                        Text(title.uppercased())
-                            .font(.system(size: 11, weight: .bold, design: .rounded))
-                            .foregroundColor(.white.opacity(0.65))
-                            .tracking(0.6)
-                        
-                        Spacer()
-                        
-                        if isActive {
-                            HStack(spacing: 5) {
-                                ProgressView()
-                                    .scaleEffect(0.55)
-                                    .frame(width: 12, height: 12)
-                                Text("Taranıyor...")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(Color(hex: "06B6D4"))
-                            }
-                        } else if isCleaned {
-                            HStack(spacing: 5) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(Color(hex: "10B981"))
-                                    .font(.system(size: 13, weight: .bold))
-                                Text("Arındırıldı")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(Color(hex: "10B981"))
-                            }
-                        } else if isCompleted {
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(Color(hex: "38BDF8"))
-                                    .frame(width: 6, height: 6)
-                                Text("Hazır")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(Color(hex: "38BDF8"))
+                    // Üst Başlık & Mücevher Rozet (Aynı Satırda Asla Çakışmaz)
+                    HStack(alignment: .top, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(title.uppercased())
+                                .font(.system(size: 11, weight: .bold, design: .rounded))
+                                .foregroundColor(.white.opacity(0.70))
+                                .tracking(0.6)
+                                .lineLimit(1)
+                            
+                            if isActive {
+                                HStack(spacing: 4) {
+                                    ProgressView()
+                                        .scaleEffect(0.5)
+                                        .frame(width: 10, height: 10)
+                                    Text("Taranıyor")
+                                        .font(.system(size: 9.5, weight: .bold))
+                                        .foregroundColor(Color(hex: "06B6D4"))
+                                }
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(Color(hex: "06B6D4").opacity(0.18))
+                                .cornerRadius(6)
+                            } else if isCleaned {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 8, weight: .heavy))
+                                        .foregroundColor(Color(hex: "10B981"))
+                                    Text("Arındırıldı")
+                                        .font(.system(size: 9.5, weight: .bold))
+                                        .foregroundColor(Color(hex: "10B981"))
+                                }
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(Color(hex: "10B981").opacity(0.18))
+                                .cornerRadius(6)
+                            } else if isCompleted {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(Color(hex: "38BDF8"))
+                                        .frame(width: 5, height: 5)
+                                    Text("Hazır")
+                                        .font(.system(size: 9.5, weight: .semibold))
+                                        .foregroundColor(Color(hex: "38BDF8"))
+                                }
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2.5)
+                                .background(Color(hex: "38BDF8").opacity(0.15))
+                                .cornerRadius(6)
                             }
                         }
+                        
+                        Spacer(minLength: 8)
+                        
+                        // Sağ Üst Cam Mücevher (Doğrudan Akış İçinde)
+                        GlassJewelEmblem(
+                            style: emblemStyle,
+                            iconName: emblemIcon,
+                            size: 42
+                        )
                     }
                     
                     Spacer(minLength: 4)
                     
-                    // Orta Bölüm: Zengin Detay Satırları (Her Zaman Görünür)
+                    // Orta Bölüm: Zengin Detay Satırları (Her Zaman Görünür ve Asla Taşmaz)
                     if let breakdown = itemsBreakdown, !breakdown.isEmpty {
                         VStack(spacing: 5) {
                             ForEach(Array(breakdown.prefix(3).enumerated()), id: \.offset) { _, item in
                                 HStack(spacing: 6) {
                                     Circle()
-                                        .fill(Color.white.opacity(0.3))
+                                        .fill(Color.white.opacity(0.35))
                                         .frame(width: 3.5, height: 3.5)
                                     Text(item.name)
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundColor(.white.opacity(0.85))
                                         .lineLimit(1)
-                                    Spacer()
+                                        .truncationMode(.tail)
+                                    
+                                    Spacer(minLength: 6)
+                                    
                                     Text(item.size)
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundColor(Color(hex: "34D399").opacity(0.9))
+                                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                        .foregroundColor(Color(hex: "34D399").opacity(0.95))
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
                                 }
                                 .padding(.horizontal, 8)
-                                .padding(.vertical, 3.5)
-                                .background(Color.white.opacity(0.035))
-                                .cornerRadius(6)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.04))
+                                .cornerRadius(7)
                             }
                         }
                         .padding(.vertical, 2)
@@ -149,13 +176,13 @@ public struct BentoCardView: View {
                     Spacer(minLength: 4)
                     
                     // Alt Bölüm: Büyük Metrik Değeri & İncele Butonu
-                    HStack(alignment: .bottom) {
+                    HStack(alignment: .bottom, spacing: 8) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(subtitle)
-                                .font(.system(size: 20, weight: .bold, design: .rounded))
+                                .font(.system(size: 19, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.85)
+                                .minimumScaleFactor(0.80)
                             
                             if !statusText.isEmpty {
                                 Text(statusText)
@@ -165,7 +192,7 @@ public struct BentoCardView: View {
                             }
                         }
                         
-                        Spacer()
+                        Spacer(minLength: 8)
                         
                         if (isCompleted || isCleaned) && reviewButtonTitle != nil {
                             HStack(spacing: 4) {
@@ -187,21 +214,6 @@ public struct BentoCardView: View {
                     }
                 }
                 .padding(18)
-                
-                // Sağ Üst Cam Mücevher
-                VStack {
-                    HStack {
-                        Spacer()
-                        GlassJewelEmblem(
-                            style: emblemStyle,
-                            iconName: emblemIcon,
-                            size: 46
-                        )
-                        .padding(.top, 14)
-                        .padding(.trailing, 14)
-                    }
-                    Spacer()
-                }
             }
         }
         .buttonStyle(.plain)

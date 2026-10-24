@@ -77,7 +77,7 @@ public struct FloatingActionButton: View {
     
     public var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: icon)
                     .font(.system(size: 13, weight: .bold))
                     .foregroundColor(.white)
@@ -90,16 +90,20 @@ public struct FloatingActionButton: View {
                 
                 if let hint = shortcutHint {
                     Text(hint)
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.85))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(Color.black.opacity(0.25))
-                        .cornerRadius(4)
+                        .font(.system(size: 9.5, weight: .bold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.92))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2.5)
+                        .background(Color.black.opacity(0.28))
+                        .cornerRadius(5)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 5)
+                                .stroke(Color.white.opacity(0.25), lineWidth: 0.8)
+                        )
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
+            .padding(.horizontal, 26)
+            .padding(.vertical, 12.5)
             .background(
                 ZStack {
                     // Dış Neon Parıltı

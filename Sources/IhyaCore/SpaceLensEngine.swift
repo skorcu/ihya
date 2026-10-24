@@ -151,7 +151,7 @@ public final class SpaceLensEngine: ObservableObject {
         let itemsToDelete = current.children.filter { selectedNodeIds.contains($0.id) }
         
         for item in itemsToDelete {
-            guard SafetyFilter.shared.isSafeToDelete(path: item.path) else {
+            guard SafetyFilter.shared.isSafeForUserTrash(path: item.path) else {
                 continue
             }
             

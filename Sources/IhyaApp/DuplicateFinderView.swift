@@ -1060,6 +1060,7 @@ public struct DuplicateFinderView: View {
     }
     
     private func trashFile(at path: String) {
+        guard SafetyFilter.shared.isSafeForUserTrash(path: path) else { return }
         let url = URL(fileURLWithPath: path)
         try? FileManager.default.trashItem(at: url, resultingItemURL: nil)
         SoundManager.shared.playCardComplete()
@@ -1071,7 +1072,9 @@ public struct DuplicateFinderView: View {
         var filesToTrash: [String] = []
         for group in activeGroups {
             for file in group.files where file.isSelectedForDeletion && !file.isOriginal {
-                filesToTrash.append(file.path)
+                if SafetyFilter.shared.isSafeForUserTrash(path: file.path) {
+                    filesToTrash.append(file.path)
+                }
             }
         }
         

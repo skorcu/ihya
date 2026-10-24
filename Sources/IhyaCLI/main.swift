@@ -26,6 +26,17 @@ struct IhyaCLI {
             print("  ihya --orphans           : Silinmiş uygulamalardan kalan yetim kütüphane artıklarını listeler")
             print("  ihya --ghosts            : Hayalet arka plan servislerini listeler")
             print("  ihya --lipo              : Evrensel uygulama mimari fazlalıklarını listeler")
+            print("  ihya --updates           : Uygulama güncellemelerini listeler")
+            return
+        }
+        
+        if args.contains("--updates") {
+            print("\n🔄 Uygulama güncellemeleri denetleniyor...")
+            let (updates, totalApps, _) = await AppUpdaterEngine.shared.scanAvailableUpdates()
+            print("Toplam Uygulama: \(totalApps) | Bulunan Güncelleme: \(updates.count)")
+            for u in updates {
+                print("• \(u.appName): Mevcut v\(u.currentVersion) -> Yeni v\(u.latestVersion) [\(u.source.rawValue)]")
+            }
             return
         }
         

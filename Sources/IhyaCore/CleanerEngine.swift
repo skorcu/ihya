@@ -30,6 +30,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     @Published public private(set) var mediaInventory: MediaInventoryStats = MediaInventoryStats()
     @Published public var availableUpdates: [AppUpdateItem] = []
     @Published public var totalInstalledAppsCount: Int = 0
+    @Published public var installedApps: [InstalledAppInfo] = []
     
     public var formattedTotalReclaimable: String {
         ByteCountFormatter.string(fromByteCount: totalReclaimableBytes, countStyle: .file)
@@ -101,7 +102,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         
         // 7. Faz: Uygulamalar & Güncellemeler (Sparkle & Homebrew)
         await updateTask("Yüklü uygulamalar ve güncellemeler denetleniyor...", phase: .appLipo, path: "/Applications")
-        let (updates, totalApps) = await AppUpdaterEngine.shared.scanAvailableUpdates()
+        let (updates, totalApps, allApps) = await AppUpdaterEngine.shared.scanAvailableUpdates()
         
         await MainActor.run {
             var updatedCats: [CategorySummary] = []
@@ -146,6 +147,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
             self.mediaInventory = inventory
             self.availableUpdates = updates
             self.totalInstalledAppsCount = totalApps
+            self.installedApps = allApps
             
             // Sadece arındırılabilir ve seçili olan sistem çöpleri dahil edilir (Şahsî dosyalar & seçilmemiş yedekler sayılmaz)
             self.recalculateTotalReclaimable()
