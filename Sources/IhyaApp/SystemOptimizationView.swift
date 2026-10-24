@@ -34,6 +34,11 @@ public struct SystemOptimizationView: View {
                             .frame(maxWidth: .infinity)
                     }
                     
+                    // Akıllı Bellek Tavsiyesi Banner'ı (Kullanıcı Talebi: Yüksek RAM tüketenleri tespit edip kapatma önerisi)
+                    if let topApp = engine.topMemoryHogs.first, engine.memoryStats.usagePercentage >= 60.0 {
+                        smartAdvisorBanner(topApp: topApp)
+                    }
+                    
                     // Alt Bölüm: 6 Derin Sistem Arındırma Görevi (2 Sütunlu Grid)
                     tasksGridSection
                 }
@@ -300,6 +305,79 @@ public struct SystemOptimizationView: View {
         )
     }
     
+    // MARK: - Akıllı Bellek Tavsiyesi Banner'ı (Smart RAM Advisor)
+    private func smartAdvisorBanner(topApp: AppMemoryUsage) -> some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color(hex: "F59E0B").opacity(0.18))
+                    .frame(width: 38, height: 38)
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(Color(hex: "F59E0B"))
+            }
+            
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text("Akıllı Bellek Tavsiyesi")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    Text("%\(Int(engine.memoryStats.usagePercentage)) Dolu")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: "F59E0B").opacity(0.2))
+                        .foregroundColor(Color(hex: "FCD34D"))
+                        .cornerRadius(4)
+                }
+                
+                Text("Önbellek arındırma inaktif sayfaları tazeler; açık uygulamalar RAM tutmaya devam eder. En çok bellek kullanan \(topApp.name) (\(topApp.formattedMemory)) kapatılarak sistem anında ferahlatılabilir.")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(2)
+            }
+            
+            Spacer()
+            
+            Button(action: {
+                appToQuit = topApp
+                showQuitConfirm = true
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                    Text("\(topApp.name)'ı Kapat")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Color(hex: "EF4444").opacity(0.25))
+                .foregroundColor(Color(hex: "FCA5A5"))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: "EF4444").opacity(0.4), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("\(topApp.name) uygulamasını güvenle sonlandırarak \(topApp.formattedMemory) bellek kazandırır")
+        }
+        .padding(14)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "F59E0B").opacity(0.12), Color(hex: "D97706").opacity(0.06)],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(hex: "F59E0B").opacity(0.25), lineWidth: 1)
+        )
+    }
+
     // MARK: - 6 Derin Sistem Arındırma Görevi (2 Sütunlu Kompakt Grid)
     private var tasksGridSection: some View {
         VStack(alignment: .leading, spacing: 12) {

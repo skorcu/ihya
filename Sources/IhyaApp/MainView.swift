@@ -275,7 +275,7 @@ public struct MainView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.0") (Native)")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.1") (Native)")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -301,36 +301,60 @@ public struct MainView: View {
             
             // Alt Donanım & Lisans Rozetleri
             VStack(alignment: .leading, spacing: 8) {
-                // Pro Satın Al Butonu (Sidebar)
-                Button(action: {
-                    showProPromoModal = true
-                }) {
+                // Pro Satın Al Butonu / VIP Rozeti (Sidebar)
+                if !licenseManager.isProUnlocked {
+                    Button(action: {
+                        showProPromoModal = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: "FDE047"))
+                            Text("Pro Satın Al")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.white)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "7C3AED"), Color(hex: "9333EA")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(8)
+                        .shadow(color: Color(hex: "7C3AED").opacity(0.35), radius: 5, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, 2)
+                } else if licenseManager.hasPersonalLicense {
                     HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "crown.fill")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(Color(hex: "FDE047"))
-                        Text("Pro Satın Al")
+                        Text("Ömür Boyu VIP")
                             .font(.system(size: 11, weight: .bold))
                             .foregroundColor(.white)
                         Spacer()
-                        Image(systemName: "arrow.up.right")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(.white.opacity(0.6))
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(Color(hex: "10B981"))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 7)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: "7C3AED"), Color(hex: "9333EA")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
+                    .background(Color(hex: "7C3AED").opacity(0.22))
                     .cornerRadius(8)
-                    .shadow(color: Color(hex: "7C3AED").opacity(0.35), radius: 5, y: 1)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(hex: "A855F7").opacity(0.4), lineWidth: 1)
+                    )
+                    .padding(.bottom, 2)
                 }
-                .buttonStyle(.plain)
-                .padding(.bottom, 2)
                 
                 // Donanım Özeti
                 HStack(spacing: 6) {
@@ -356,7 +380,7 @@ public struct MainView: View {
                                 .foregroundColor(.white)
                                 .cornerRadius(4)
                             
-                            Text(licenseManager.hasPersonalLicense ? (licenseManager.hwidGrantTitle ?? "Ömür Boyu VIP") : (licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "Pro"))
+                            Text(licenseManager.hasPersonalLicense ? "Ömür Boyu VIP" : (licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "Pro"))
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.85))
                         }
@@ -573,32 +597,51 @@ public struct MainView: View {
             // Canlı İhyâ Sürüm / Güncelleme Rozeti
             headerUpdateStatusView
             
-            // Satın Al / Pro Tanıtım Butonu
-            Button(action: {
-                showProPromoModal = true
-            }) {
+            // Satın Al / Pro Tanıtım Butonu (SADECE Pro Aktif Değilse Göster)
+            if !licenseManager.isProUnlocked {
+                Button(action: {
+                    showProPromoModal = true
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(Color(hex: "FDE047"))
+                        Text("Pro Satın Al")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "7C3AED"), Color(hex: "D946EF")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(8)
+                    .shadow(color: Color(hex: "7C3AED").opacity(0.4), radius: 5, y: 1)
+                }
+                .buttonStyle(.plain)
+                .help("Ömür Boyu İhyâ Pro Lisansı Satın Al (sarkacadam.com)")
+            } else if licenseManager.hasPersonalLicense {
                 HStack(spacing: 5) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "crown.fill")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(Color(hex: "FDE047"))
-                    Text("Pro Satın Al")
+                    Text("Ömür Boyu VIP")
                         .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.white)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "7C3AED"), Color(hex: "D946EF")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .background(Color(hex: "7C3AED").opacity(0.3))
                 .cornerRadius(8)
-                .shadow(color: Color(hex: "7C3AED").opacity(0.4), radius: 5, y: 1)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: "A855F7").opacity(0.4), lineWidth: 1)
+                )
             }
-            .buttonStyle(.plain)
-            .help("Ömür Boyu İhyâ Pro Lisansı Satın Al (sarkacadam.com)")
             
             // Disk Bilgi Rozeti
             HStack(spacing: 6) {
@@ -1912,11 +1955,24 @@ public struct MainView: View {
                         .buttonStyle(.borderedProminent)
                     }
 
-                    HStack {
-                        Spacer()
-                        Link("VIP Satın Al (3'lü Taş Seti Hediyeli) ↗", destination: URL(string: "https://sarkacadam.com/urun/ihya-sukunet-kristal-seti")!)
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundColor(Color(hex: "F59E0B"))
+                    if !licenseManager.hasPersonalLicense {
+                        HStack {
+                            Spacer()
+                            Link("VIP Satın Al (3'lü Taş Seti Hediyeli) ↗", destination: URL(string: "https://sarkacadam.com/urun/ihya-sukunet-kristal-seti")!)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: "F59E0B"))
+                        }
+                    } else {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundColor(Color(hex: "10B981"))
+                                .font(.system(size: 12))
+                            Text("Bu donanım için Ömür Boyu VIP Lisansı aktif durumdadır. Yeniden satın alma gerekmez.")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                            Spacer()
+                        }
+                        .padding(.vertical, 4)
                     }
                     
                     if !licenseStatusMessage.isEmpty {
