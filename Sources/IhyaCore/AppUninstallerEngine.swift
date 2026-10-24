@@ -122,6 +122,34 @@ public final class AppUninstallerEngine: Sendable {
         "reminders", "calendar", "contacts", "facetime", "preview"
     ]
     
+    // Yalnızca macOS çekirdek (SIP / SSV) kök korumalı ve kullanıcı tarafından silinemeyen sistem uygulamaları
+    private let nonDeletableAppleBundleIds: Set<String> = [
+        "com.apple.Safari",
+        "com.apple.finder",
+        "com.apple.systempreferences",
+        "com.apple.AppStore",
+        "com.apple.Preview",
+        "com.apple.mail",
+        "com.apple.MobileSMS",
+        "com.apple.Photos",
+        "com.apple.Music",
+        "com.apple.podcasts",
+        "com.apple.TV",
+        "com.apple.Notes",
+        "com.apple.reminders",
+        "com.apple.iCal",
+        "com.apple.AddressBook",
+        "com.apple.FaceTime",
+        "com.apple.shortcuts",
+        "com.apple.weather",
+        "com.apple.news",
+        "com.apple.stocks",
+        "com.apple.calculator",
+        "com.apple.clock",
+        "com.apple.Maps",
+        "com.apple.TextEdit"
+    ]
+    
     /// Yüklü uygulamaları ve sistemdeki tüm derin kırıntılarını tarar
     public func scanInstalledApps() async -> (apps: [InstalledAppItem], orphans: [OrphanedRemnantGroup]) {
         return await Task.detached(priority: .userInitiated) {
@@ -200,8 +228,8 @@ public final class AppUninstallerEngine: Sendable {
                     knownSignatures.insert(bundleId.lowercased())
                     
                     let isSystem = appPath.hasPrefix("/System") ||
-                                   bundleId.hasPrefix("com.apple.") ||
-                                   appPath == "/Applications/Safari.app"
+                                   appPath == "/Applications/Safari.app" ||
+                                   self.nonDeletableAppleBundleIds.contains(bundleId)
                     
                     let appSize = FastScanner.shared.getPathSize(path: appPath)
                     
@@ -232,7 +260,7 @@ public final class AppUninstallerEngine: Sendable {
         }.value
     }
     
-    /// Bir uygulamaya ait derin kalıntıları tespit eder
+    /// Bir uygulamaya ait derin kalıntıları tespit eder (360 Derece Sistem Taraması)
     private func findRemnants(forAppName appName: String, bundleId: String) -> [AppRemnantItem] {
         var remnants: [AppRemnantItem] = []
         let home = NSHomeDirectory()
@@ -242,41 +270,48 @@ public final class AppUninstallerEngine: Sendable {
         // Bundle parçalarından belirleyici kök adı çıkar (Örn: com.sarkacadam.app -> sarkacadam)
         let bundleParts = lowerBundle.split(separator: ".").map(String.init)
         let domainKeyword = bundleParts.first(where: {
-            $0.count >= 5 && !["com", "org", "net", "app", "macos", "apple", "desktop", "unknown"].contains($0)
+            $0.count >= 4 && !["com", "org", "net", "app", "macos", "apple", "desktop", "unknown"].contains($0)
         })
         
-        let targets: [(subPath: String, label: String, isFolderDirectMatch: Bool)] = [
-            ("Library/Application Support", "Application Support", true),
-            ("Library/Application Scripts", "Uygulama Betikleri (Scripts)", true),
-            ("Library/Caches", "Önbellek (Caches)", true),
-            ("Library/Containers", "Kapsayıcı (Containers)", true),
-            ("Library/Saved Application State", "Kayıtlı Durumlar", true),
-            ("Library/WebKit", "WebKit Verileri", true),
-            ("Library/Logs", "Sistem Günlükleri", true),
-            ("Library/HTTPStorages", "Ağ Depolaması", true)
+        let targets: [(dirPath: String, label: String)] = [
+            ((home as NSString).appendingPathComponent("Library/Application Support"), "Application Support"),
+            ((home as NSString).appendingPathComponent("Library/Application Scripts"), "Uygulama Betikleri (Scripts)"),
+            ((home as NSString).appendingPathComponent("Library/Caches"), "Önbellek (Caches)"),
+            ((home as NSString).appendingPathComponent("Library/Containers"), "Kapsayıcı (Containers)"),
+            ((home as NSString).appendingPathComponent("Library/Group Containers"), "Grup Kapsayıcıları (Shared Data)"),
+            ((home as NSString).appendingPathComponent("Library/Saved Application State"), "Kayıtlı Durumlar"),
+            ((home as NSString).appendingPathComponent("Library/WebKit"), "WebKit Verileri"),
+            ((home as NSString).appendingPathComponent("Library/Logs"), "Sistem Günlükleri"),
+            ((home as NSString).appendingPathComponent("Library/HTTPStorages"), "Ağ Depolaması"),
+            ((home as NSString).appendingPathComponent("Library/LaunchAgents"), "Kullanıcı Başlangıç Servisi"),
+            ("/Library/Application Support", "Sistem Application Support"),
+            ("/Library/LaunchAgents", "Sistem Başlangıç Servisi"),
+            ("/Library/LaunchDaemons", "Sistem Arka Plan Servisi"),
+            ("/Library/Audio", "Ses ve Enstrüman Deposu")
         ]
         
         for target in targets {
-            let fullTargetDir = (home as NSString).appendingPathComponent(target.subPath)
-            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: fullTargetDir) else { continue }
+            guard let contents = try? FileManager.default.contentsOfDirectory(atPath: target.dirPath) else { continue }
             
             for folderName in contents {
                 let lowerFolder = folderName.lowercased()
                 
-                // Apple sistem dosyalarını atla
-                if appleWhitelist.contains(where: { lowerFolder == $0 || lowerFolder.hasPrefix($0 + ".") }) {
-                    continue
+                let isDirectMatch = lowerFolder == lowerBundle ||
+                                    lowerFolder == lowerName ||
+                                    lowerFolder.hasPrefix(lowerBundle) ||
+                                    lowerFolder.contains(lowerBundle) ||
+                                    (lowerName.count >= 4 && lowerFolder.hasPrefix(lowerName)) ||
+                                    (domainKeyword != nil && lowerFolder.contains(domainKeyword!))
+                
+                // Doğrudan bu uygulamanın kendi kırıntısı değilse Apple kök sistem dosyalarını koru
+                if !isDirectMatch {
+                    if appleWhitelist.contains(where: { lowerFolder == $0 || lowerFolder.hasPrefix($0 + ".") }) {
+                        continue
+                    }
                 }
                 
-                let isMatch = lowerFolder == lowerBundle ||
-                              lowerFolder == lowerName ||
-                              lowerFolder.hasPrefix(lowerBundle) ||
-                              lowerFolder.contains(lowerBundle) ||
-                              (lowerName.count >= 4 && lowerFolder.hasPrefix(lowerName)) ||
-                              (domainKeyword != nil && lowerFolder.contains(domainKeyword!))
-                
-                if isMatch {
-                    let itemPath = (fullTargetDir as NSString).appendingPathComponent(folderName)
+                if isDirectMatch {
+                    let itemPath = (target.dirPath as NSString).appendingPathComponent(folderName)
                     let size = FastScanner.shared.getPathSize(path: itemPath)
                     if size > 0 {
                         remnants.append(AppRemnantItem(
@@ -284,7 +319,7 @@ public final class AppUninstallerEngine: Sendable {
                             path: itemPath,
                             size: size,
                             categoryName: target.label,
-                            isSelected: false
+                            isSelected: true
                         ))
                     }
                 }
@@ -307,7 +342,7 @@ public final class AppUninstallerEngine: Sendable {
                         path: plistPath,
                         size: max(size, 1024),
                         categoryName: "Tercihler (Preferences)",
-                        isSelected: false
+                        isSelected: true
                     ))
                 }
             }
@@ -419,11 +454,32 @@ public final class AppUninstallerEngine: Sendable {
         return !FileManager.default.fileExists(atPath: path)
     }
     
+    /// Uygulama açıksa önce nazikçe (terminate), kapanmazsa zorla (forceTerminate) kapatır
+    public func closeAppIfRunning(bundleId: String, bundlePath: String) {
+        let runningApps = NSWorkspace.shared.runningApplications
+        for app in runningApps {
+            if (app.bundleIdentifier != nil && app.bundleIdentifier == bundleId) ||
+               (app.bundleURL != nil && app.bundleURL?.path == bundlePath) {
+                app.terminate()
+                usleep(300_000) // 300 ms bekle
+                if !app.isTerminated {
+                    app.forceTerminate()
+                    usleep(150_000)
+                }
+            }
+        }
+    }
+    
     /// Seçili uygulama ve kırıntılarını GÜVENLE Çöp Sepeti'ne taşır (Geri alınabilir)
     public func trashApp(app: InstalledAppItem, trashBundle: Bool) -> AppTrashResult {
         var reclaimed: Int64 = 0
         var count = 0
         var failed: [String] = []
+        
+        // Kaldırılacak uygulama çalışıyorsa önce temizce kapat
+        if trashBundle && !app.isSystemApp && app.isSelected {
+            closeAppIfRunning(bundleId: app.bundleId, bundlePath: app.bundlePath)
+        }
         
         // 1. Kütüphane kırıntılarını çöpe taşı
         for remnant in app.remnants where remnant.isSelected {

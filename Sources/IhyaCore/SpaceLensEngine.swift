@@ -44,6 +44,7 @@ public final class SpaceLensEngine: ObservableObject {
     @Published public var currentNode: LensNode? = nil
     @Published public var pathBreadcrumbs: [LensNode] = []
     @Published public var isScanning: Bool = false
+    @Published public var progressFraction: Double = 0.0
     @Published public var scanProgressMessage: String = ""
     @Published public var selectedNodeIds: Set<String> = []
     @Published public var totalScannedSize: Int64 = 0
@@ -67,6 +68,7 @@ public final class SpaceLensEngine: ObservableObject {
     public func scan(path: String? = nil) async {
         let targetPath = path ?? FileManager.default.homeDirectoryForCurrentUser.path
         isScanning = true
+        progressFraction = 0.25
         scanProgressMessage = "Dizin haritası taranıyor: \(URL(fileURLWithPath: targetPath).lastPathComponent)..."
         selectedNodeIds.removeAll()
         
@@ -74,6 +76,7 @@ public final class SpaceLensEngine: ObservableObject {
             return Self.scanDirectory(path: targetPath, depth: 0, maxDepth: 2, palette: palette)
         }.value
         
+        self.progressFraction = 1.0
         self.rootNode = scanned
         self.currentNode = scanned
         self.pathBreadcrumbs = [scanned]

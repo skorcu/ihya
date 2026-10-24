@@ -40,6 +40,26 @@ public struct OptimizationTask: Identifiable, Sendable {
     }
 }
 
+public struct AppMemoryUsage: Identifiable, Sendable {
+    public let id: pid_t
+    public let name: String
+    public let bundleIdentifier: String
+    public let memoryBytes: UInt64
+    public let formattedMemory: String
+    public let percentageOfRAM: Double
+    @MainActor public var icon: NSImage?
+    
+    public init(id: pid_t, name: String, bundleIdentifier: String, memoryBytes: UInt64, percentageOfRAM: Double, icon: NSImage? = nil) {
+        self.id = id
+        self.name = name
+        self.bundleIdentifier = bundleIdentifier
+        self.memoryBytes = memoryBytes
+        self.formattedMemory = ByteCountFormatter.string(fromByteCount: Int64(memoryBytes), countStyle: .memory)
+        self.percentageOfRAM = percentageOfRAM
+        self.icon = icon
+    }
+}
+
 @MainActor
 public final class SystemOptimizationEngine: ObservableObject {
     public static let shared = SystemOptimizationEngine()
@@ -54,6 +74,7 @@ public final class SystemOptimizationEngine: ObservableObject {
         usagePercentage: 62.5
     )
     
+    @Published public var topMemoryHogs: [AppMemoryUsage] = []
     @Published public var isOptimizing: Bool = false
     @Published public var currentActionText: String = ""
     @Published public var tasks: [OptimizationTask] = [
@@ -97,6 +118,51 @@ public final class SystemOptimizationEngine: ObservableObject {
     
     public init() {
         refreshMemoryStats()
+        refreshTopMemoryHogs()
+    }
+    
+    /// En çok RAM tüketen ilk 5 uygulamayı gerçek zamanlı tespit eder
+    public func refreshTopMemoryHogs() {
+        let totalRAM = ProcessInfo.processInfo.physicalMemory
+        let myPID = getpid()
+        let apps = NSWorkspace.shared.runningApplications.filter {
+            $0.activationPolicy == .regular && $0.processIdentifier != myPID
+        }
+        
+        var list: [AppMemoryUsage] = []
+        for app in apps {
+            let pid = app.processIdentifier
+            var taskInfo = proc_taskinfo()
+            let size = MemoryLayout<proc_taskinfo>.size
+            let result = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &taskInfo, Int32(size))
+            let memBytes: UInt64 = (result == Int32(size)) ? taskInfo.pti_resident_size : 0
+            
+            if memBytes > 15_000_000 { // 15 MB üzeri
+                let pct = (Double(memBytes) / Double(max(totalRAM, 1))) * 100.0
+                list.append(AppMemoryUsage(
+                    id: pid,
+                    name: app.localizedName ?? "Uygulama",
+                    bundleIdentifier: app.bundleIdentifier ?? "",
+                    memoryBytes: memBytes,
+                    percentageOfRAM: pct,
+                    icon: app.icon
+                ))
+            }
+        }
+        
+        list.sort { $0.memoryBytes > $1.memoryBytes }
+        self.topMemoryHogs = Array(list.prefix(5))
+    }
+    
+    /// Bellek canavarı bir uygulamayı nazikçe (terminate), gerekirse zorla (forceTerminate) kapatır
+    public func terminateApp(pid: pid_t) {
+        if let app = NSRunningApplication(processIdentifier: pid) {
+            app.terminate()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.refreshMemoryStats()
+            self.refreshTopMemoryHogs()
+        }
     }
     
     /// Anlık RAM İstatistiklerini Mach API üzerinden okur
@@ -134,6 +200,7 @@ public final class SystemOptimizationEngine: ObservableObject {
             wiredBytes: wired,
             usagePercentage: min(max(percentage, 0.0), 100.0)
         )
+        refreshTopMemoryHogs()
     }
     
     /// Tek Tıkla İnaktif RAM'i Boşaltır

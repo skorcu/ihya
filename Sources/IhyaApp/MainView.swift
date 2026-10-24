@@ -52,6 +52,7 @@ public struct MainView: View {
     @State private var licenseInputKey: String = ""
     @State private var licenseStatusMessage: String = ""
     @State private var hasStartedSmartScan: Bool = false
+    @State private var showProPromoModal: Bool = false
     
     public init() {}
     
@@ -116,9 +117,17 @@ public struct MainView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
+            
+            // 3. Pro Tanıtım & Satın Alma Modalı
+            if showProPromoModal {
+                proPromoModalOverlay
+            }
         }
         .frame(minWidth: 960, minHeight: 600)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear {
+            checkFirstRunPromo()
+        }
     }
     
     // MARK: - 1. Dinamik Tematik Akışkan Zemin
@@ -277,6 +286,37 @@ public struct MainView: View {
             
             // Alt Donanım & Lisans Rozetleri
             VStack(alignment: .leading, spacing: 8) {
+                // Pro Satın Al Butonu (Sidebar)
+                Button(action: {
+                    showProPromoModal = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "FDE047"))
+                        Text("Pro Satın Al")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "7C3AED"), Color(hex: "9333EA")],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(8)
+                    .shadow(color: Color(hex: "7C3AED").opacity(0.35), radius: 5, y: 1)
+                }
+                .buttonStyle(.plain)
+                .padding(.bottom, 2)
+                
                 // Donanım Özeti
                 HStack(spacing: 6) {
                     Image(systemName: "cpu")
@@ -478,6 +518,33 @@ public struct MainView: View {
             }
             
             Spacer()
+            
+            // Satın Al / Pro Tanıtım Butonu
+            Button(action: {
+                showProPromoModal = true
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "FDE047"))
+                    Text("Pro Satın Al")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "7C3AED"), Color(hex: "D946EF")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(8)
+                .shadow(color: Color(hex: "7C3AED").opacity(0.4), radius: 5, y: 1)
+            }
+            .buttonStyle(.plain)
+            .help("Ömür Boyu İhyâ Pro Lisansı Satın Al (sarkacadam.com)")
             
             // Disk Bilgi Rozeti
             HStack(spacing: 6) {
@@ -1644,6 +1711,211 @@ public struct MainView: View {
             }
             .padding(.horizontal, 24)
         }
+    }
+    
+    // MARK: - İlk Açılış Pro Tanıtım Kontrolü
+    private func checkFirstRunPromo() {
+        let hasSeenPromo = UserDefaults.standard.bool(forKey: "ihya_has_seen_pro_onboarding")
+        if !hasSeenPromo && !licenseManager.hasPersonalLicense {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showProPromoModal = true
+                }
+            }
+        }
+    }
+    
+    // MARK: - Pro Tanıtım & Satın Alma Modalı (Paywall / Onboarding Popup)
+    private var proPromoModalOverlay: some View {
+        ZStack {
+            // Karartılmış Zemin
+            Color.black.opacity(0.7)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showProPromoModal = false
+                        UserDefaults.standard.set(true, forKey: "ihya_has_seen_pro_onboarding")
+                    }
+                }
+            
+            // Cam Pencere
+            VStack(spacing: 16) {
+                // Kapat Butonu (Sağ Üst)
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            showProPromoModal = false
+                            UserDefaults.standard.set(true, forKey: "ihya_has_seen_pro_onboarding")
+                        }
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                // Başlık & İkon
+                VStack(spacing: 8) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "7C3AED"), Color(hex: "38BDF8")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 52, height: 52)
+                            .shadow(color: Color(hex: "7C3AED").opacity(0.5), radius: 14)
+                        
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                    
+                    Text("İhyâ Pro — Mac'iniz İçin Kusursuz Arındırma")
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+                    
+                    Text("Sarkaç Adam özel mühendisliği ile geliştirilen tüm üstün yetenekleri tek lisansla ömür boyu kullanın.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 440)
+                }
+                
+                // Yetenek Listesi (Bento Kartları)
+                VStack(spacing: 6) {
+                    promoFeatureRow(icon: "bolt.fill", colorHex: "14B8A6", title: "Akıllı & Derin Sistem Arındırma", desc: "Geçici sistem yükleri, DNS ve birleşik RAM'i tek tıkla boşaltır.")
+                    promoFeatureRow(icon: "doc.on.doc.fill", colorHex: "38BDF8", title: "Çift Dosya Avcısı (SHA-256)", desc: "Mükerrer fotoğraf, video ve belgeleri kriptografik eşler, diski açar.")
+                    promoFeatureRow(icon: "circle.hexagongrid.fill", colorHex: "06B6D4", title: "Hacim Röntgeni (Sunburst)", desc: "Diskinizi renkli halkalarla haritalandırır, devasa gizli klasörleri yakalar.")
+                    promoFeatureRow(icon: "xmark.bin.fill", colorHex: "EF4444", title: "Kalıntısız Uygulama Kaldırıcı", desc: "Uygulamaları ve tüm gizli kütüphane kırıntılarını 360° derin temizler.")
+                    promoFeatureRow(icon: "bolt.shield.fill", colorHex: "8B5CF6", title: "Hayalet Servis Kalkanı", desc: "Arka planda pil ve CPU tüketen yetim servis süreçlerini yok eder.")
+                }
+                .padding(.horizontal, 4)
+                
+                // VIP Hediye & Lisans Güvencesi Rozeti
+                HStack(spacing: 8) {
+                    Image(systemName: "gift.fill")
+                        .foregroundColor(Color(hex: "FDE047"))
+                        .font(.system(size: 11))
+                    Text("Ömür Boyu Lisans • Sıfır Abonelik • 3'lü Fıtrî Kristal Taş Seti Hediyeli")
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundColor(Color(hex: "FDE047"))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Color(hex: "FDE047").opacity(0.12))
+                .cornerRadius(6)
+                
+                // Butonlar
+                VStack(spacing: 8) {
+                    Button(action: {
+                        if let url = URL(string: "https://sarkacadam.com/urun/ihya-sukunet-kristal-seti") {
+                            NSWorkspace.shared.open(url)
+                        }
+                        showProPromoModal = false
+                        UserDefaults.standard.set(true, forKey: "ihya_has_seen_pro_onboarding")
+                    }) {
+                        HStack(spacing: 6) {
+                            Text("Ömür Boyu Pro Lisans Satın Al (sarkacadam.com) ↗")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(
+                            LinearGradient(
+                                colors: [Color(hex: "7C3AED"), Color(hex: "9333EA")],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                        .shadow(color: Color(hex: "7C3AED").opacity(0.4), radius: 6, y: 2)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    HStack(spacing: 14) {
+                        Button(action: {
+                            selectedTab = .settings
+                            showProPromoModal = false
+                            UserDefaults.standard.set(true, forKey: "ihya_has_seen_pro_onboarding")
+                        }) {
+                            Text("Zaten Lisansım Var (Etkinleştir)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(Color(hex: "38BDF8"))
+                        }
+                        .buttonStyle(.plain)
+                        
+                        Text("•")
+                            .foregroundColor(.white.opacity(0.3))
+                        
+                        Button(action: {
+                            showProPromoModal = false
+                            UserDefaults.standard.set(true, forKey: "ihya_has_seen_pro_onboarding")
+                        }) {
+                            Text("Daha Sonra")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(20)
+            .frame(width: 500)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color(hex: "0D081B").opacity(0.96))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(
+                        LinearGradient(
+                            colors: [Color(hex: "7C3AED").opacity(0.6), Color(hex: "38BDF8").opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.7), radius: 32, y: 12)
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+    }
+    
+    private func promoFeatureRow(icon: String, colorHex: String, title: String, desc: String) -> some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(hex: colorHex).opacity(0.18))
+                    .frame(width: 24, height: 24)
+                Image(systemName: icon)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Color(hex: colorHex))
+            }
+            
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                Text(desc)
+                    .font(.system(size: 9.5))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            Spacer()
+            Image(systemName: "checkmark")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundColor(Color(hex: "10B981"))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Color.white.opacity(0.03))
+        .cornerRadius(6)
     }
 }
 

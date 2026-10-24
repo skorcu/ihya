@@ -29,6 +29,19 @@ public final class AppLipoEngine: Sendable {
                 }
                 
                 let appPath = (dir as NSString).appendingPathComponent(app)
+                
+                // 1. Apple Mac App Store Koruması: MAS makbuzu içeren uygulamalar ikili değişikliğinde bozulur (Gatekeeper DRM hatası)
+                let masReceiptPath = (appPath as NSString).appendingPathComponent("Contents/_MASReceipt")
+                if FileManager.default.fileExists(atPath: masReceiptPath) {
+                    continue
+                }
+                
+                // 2. Kritik Apple & Büyük Kurumsal Yazılım Koruması (Numbers, Keynote, Pages, Word, Excel, Adobe, Chrome vb.)
+                let protectedKeywords = ["Numbers", "Pages", "Keynote", "Safari", "Xcode", "Microsoft", "Word", "Excel", "PowerPoint", "Outlook", "Adobe", "Google Chrome"]
+                if protectedKeywords.contains(where: { app.localizedCaseInsensitiveContains($0) }) {
+                    continue
+                }
+                
                 let macOSDir = (appPath as NSString).appendingPathComponent("Contents/MacOS")
                 guard let binaries = try? FileManager.default.contentsOfDirectory(atPath: macOSDir) else { continue }
                 

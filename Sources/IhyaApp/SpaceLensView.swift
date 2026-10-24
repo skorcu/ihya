@@ -19,6 +19,13 @@ public struct SpaceLensView: View {
                 heroStageView
             }
         }
+        .onAppear {
+            if engine.currentNode == nil && !engine.isScanning {
+                Task {
+                    await engine.scan()
+                }
+            }
+        }
     }
     
     // MARK: - 1. Boşta Durum (Hero Stage)
@@ -56,33 +63,18 @@ public struct SpaceLensView: View {
         }
     }
     
-    // MARK: - 2. Tarama Sürüyor Durumu
+    // MARK: - 2. Tarama Sürüyor Durumu (Lüks İlerleme Çubuğu)
     private var scanningStateView: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "06B6D4").opacity(0.18))
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 20)
-                
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "22D3EE")))
-                    .scaleEffect(1.6)
-            }
-            
-            VStack(spacing: 8) {
-                Text("Disk Haritası Çıkarılıyor...")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text(engine.scanProgressMessage)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.65))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 380)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        LuxuryScanningStageView(
+            title: "Hacim Röntgeni Çekiliyor...",
+            subtitle: "Mac'inizin depolama haritası taranıyor ve bloklar hesaplanıyor",
+            emblemStyle: .cyan,
+            emblemIcon: "circle.hexagongrid.fill",
+            steps: ["1. Dizin Haritası", "2. Boyut Dağılımı", "3. Hacim Röntgeni"],
+            currentStepIndex: 1,
+            progressFraction: engine.progressFraction > 0 ? engine.progressFraction : 0.65,
+            currentItemName: engine.scanProgressMessage
+        )
     }
     
     // MARK: - 3. Taranmış Hiyerarşi & Röntgen Sahnesi
@@ -319,46 +311,57 @@ public struct SpaceLensView: View {
             }
             .buttonStyle(PlainButtonStyle())
             
-            // Simge
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color(hex: node.colorHex).opacity(0.2))
-                    .frame(width: 28, height: 28)
-                
-                Image(systemName: node.isDirectory ? "folder.fill" : "doc.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(Color(hex: node.colorHex))
-            }
-            
-            // Başlık & Yüzdelik İlerleme Çubuğu
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(node.name)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                    
-                    Spacer()
-                    
-                    Text(node.formattedSize)
-                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.9))
+            // Tıklanabilir İçerik: Simge, Başlık & Yüzdelik İlerleme Çubuğu (Klasöre Girer)
+            Button(action: {
+                if node.isDirectory {
+                    engine.drillDown(to: node)
                 }
-                
-                // Mini Yüzdelik Çubuğu
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule()
-                            .fill(Color.white.opacity(0.08))
-                            .frame(height: 4)
+            }) {
+                HStack(spacing: 12) {
+                    // Simge
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(hex: node.colorHex).opacity(0.2))
+                            .frame(width: 28, height: 28)
                         
-                        Capsule()
-                            .fill(Color(hex: node.colorHex))
-                            .frame(width: max(geo.size.width * CGFloat(node.percentage), 4), height: 4)
+                        Image(systemName: node.isDirectory ? "folder.fill" : "doc.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(Color(hex: node.colorHex))
+                    }
+                    
+                    // Başlık & Yüzdelik İlerleme Çubuğu
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(node.name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.white)
+                                .lineLimit(1)
+                            
+                            Spacer()
+                            
+                            Text(node.formattedSize)
+                                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        
+                        // Mini Yüzdelik Çubuğu
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule()
+                                    .fill(Color.white.opacity(0.08))
+                                    .frame(height: 4)
+                                
+                                Capsule()
+                                    .fill(Color(hex: node.colorHex))
+                                    .frame(width: max(geo.size.width * CGFloat(node.percentage), 4), height: 4)
+                            }
+                        }
+                        .frame(height: 4)
                     }
                 }
-                .frame(height: 4)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(PlainButtonStyle())
             
             // Klasör ise Derinleş (Drill Down) Butonu
             if node.isDirectory {
@@ -395,11 +398,6 @@ public struct SpaceLensView: View {
                 .stroke(isSelected ? Color(hex: "06B6D4").opacity(0.4) : Color.white.opacity(0.06), lineWidth: 1)
         )
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            if node.isDirectory {
-                engine.drillDown(to: node)
-            }
-        }
         .onHover { hovering in
             hoveredNodeId = hovering ? node.id : nil
         }
