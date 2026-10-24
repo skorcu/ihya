@@ -282,21 +282,15 @@ public struct MainView: View {
                     }
                 }
                 
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("İhyâ")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                    
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.3") (Native)")
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.5))
-                }
+                Text("İhyâ")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
                 
                 Spacer()
             }
             .padding(.horizontal, 16)
-            .padding(.top, 48)
-            .padding(.bottom, 22)
+            .padding(.top, 28)
+            .padding(.bottom, 16)
             
             // Gruplandırılmış Navigasyon Listesi
             ScrollView(.vertical, showsIndicators: false) {
@@ -345,45 +339,20 @@ public struct MainView: View {
                     .buttonStyle(.plain)
                     .padding(.bottom, 2)
                 } else if licenseManager.hasPersonalLicense {
-                    // Tek ve Birleşik Lüks VIP & Donanım Kartı (Sıfır Mükerrerlik)
-                    HStack(spacing: 8) {
-                        ZStack {
-                            Circle()
-                                .fill(Color(hex: "7C3AED").opacity(0.3))
-                                .frame(width: 26, height: 26)
-                            Image(systemName: "crown.fill")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundColor(Color(hex: "FDE047"))
-                        }
+                    // TEK SATIR, SIFIR LOGO KALABALIĞI ÖMÜR BOYU VIP KARTI
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Ömür Boyu VIP")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
                         
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 5) {
-                                Text("PRO")
-                                    .font(.system(size: 8, weight: .black))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Color(hex: "7C3AED"))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(3)
-                                
-                                Text("Ömür Boyu VIP")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(.white)
-                            }
-                            
-                            Text(HardwareInfo.summary)
-                                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.55))
-                                .lineLimit(1)
-                        }
-                        
-                        Spacer()
-                        
-                        Image(systemName: "checkmark.seal.fill")
-                            .font(.system(size: 13))
-                            .foregroundColor(Color(hex: "10B981"))
+                        Text(HardwareInfo.summary)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.55))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color.white.opacity(0.04))
                     .cornerRadius(8)
@@ -393,66 +362,26 @@ public struct MainView: View {
                     )
                 } else {
                     // Trial veya Standart Pro
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 4) {
-                                Text("PRO")
-                                    .font(.system(size: 9, weight: .black))
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color(hex: "2563EB"))
-                                    .foregroundColor(.white)
-                                    .cornerRadius(4)
-                                
-                                Text(licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "İhyâ Pro")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(.white.opacity(0.85))
-                            }
-                            
-                            Text(HardwareInfo.summary)
-                                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.55))
-                                .lineLimit(1)
-                        }
-                        Spacer()
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(licenseManager.isTrialActive ? "Pro Deneme (\(licenseManager.trialDaysRemaining) gün)" : "İhyâ Pro")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+                        
+                        Text(HardwareInfo.summary)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.55))
+                            .lineLimit(1)
                     }
-                    .padding(.horizontal, 10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color.white.opacity(0.04))
                     .cornerRadius(8)
-                }
-                
-                // Güncelleme Butonu Varsa
-                if !licenseManager.hasPersonalLicense {
-                    // Pro olmayanlar için donanım & free rozeti
-                    HStack(spacing: 6) {
-                        Image(systemName: "cpu")
-                            .font(.system(size: 10))
-                            .foregroundColor(.white.opacity(0.5))
-                        Text(HardwareInfo.summary)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.6))
-                            .lineLimit(1)
-                    }
-                    
-                    HStack {
-                        Button(action: { selectedTab = .settings }) {
-                            HStack(spacing: 4) {
-                                Text("FREE")
-                                    .font(.system(size: 9, weight: .black))
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 2)
-                                    .background(Color.white.opacity(0.12))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .cornerRadius(4)
-                                Text("Pro'ya Yükselt")
-                                    .font(.system(size: 10, weight: .semibold))
-                                    .foregroundColor(Color(hex: "38BDF8"))
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        Spacer()
-                    }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color(hex: "2563EB").opacity(0.35), lineWidth: 1)
+                    )
                 }
                 
                 HStack {
