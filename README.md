@@ -1,7 +1,7 @@
 # 💎 İhyâ (Mac) — Yeni Nesil Saf macOS Arınma & Canlanma Motoru
 
 <div align="center">
-  <img src="Resources/icon_1024.png" width="128" height="128" alt="İhyâ macOS Logo" />
+  <img src="https://caneser.com/images/ihya-logo.webp" width="128" height="128" alt="İhyâ macOS Logo" />
   <br />
   <h2>Işık Hızında, %100 Yerel ve Gizlilik Odaklı macOS Sistem Arınma & Hız Mimarisi</h2>
   <p><b>Apple Silicon (M1/M2/M3/M4) ve Intel (x86_64) Universal 2 Mimarisiyle Sıfır Tavizli Saf Performans</b></p>
@@ -9,7 +9,7 @@
     <img src="https://img.shields.io/badge/Platform-macOS_14+_Sonoma_|_Sequoia-000000?style=flat-square&logo=apple&logoColor=white" />
     <img src="https://img.shields.io/badge/Mimari-Universal_2_(arm64_+_x86__64)-8B5CF6?style=flat-square" />
     <img src="https://img.shields.io/badge/Swift-5.10_|_SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white" />
-    <img src="https://img.shields.io/badge/Sürüm-v1.6.3-10B981?style=flat-square" />
+    <img src="https://img.shields.io/badge/Sürüm-v1.6.4-10B981?style=flat-square" />
     <a href="https://github.com/skorcu/kasif"><img src="https://img.shields.io/badge/Kardeş_Uygulama-Kâşif_(APFS_Arama)-0284C7?style=flat-square&logo=apple&logoColor=white" /></a>
     <img src="https://img.shields.io/badge/Lisans-Proprietary_(Telif_Korumalı)-blue?style=flat-square" />
   </p>
@@ -19,7 +19,7 @@
 
 ## 🌿 Sarkaç Adam'dan Mac Topluluğuna Bir Arınma Hediyesi
 
-> *"Zihinsel berraklık ve fıtrî denge için kadim doğal kristallerin huzurunu ararken, her gün saatlerimizi geçirdiğimiz çalışma alanımız olan Mac'imizin de arınmış, hafif ve pürüzsüz olması gerektiğine inanıyoruz.*  
+> *"Zihinsel berraklık ve doğal denge için kadim doğal kristallerin huzurunu ararken, her gün saatlerimizi geçirdiğimiz çalışma alanımız olan Mac'imizin de arınmış, hafif ve pürüzsüz olması gerektiğine inanıyoruz.*  
 > *Sarkaç Adam olarak; geleneksel abonelik tuzaklarına ve sistemi yoran hantal araçlara inat, en saf Swift mühendisliğiyle geliştirdiğimiz **İhyâ**'yı tüm Mac kullanıcılarına **karşılıksız bir hediye** olarak takdim ediyoruz.*  
 > *Mac'iniz ilk günkü saf hızına kavuşurken, sizleri de çalışma masanıza sükûnet ve denge katacak doğal kristallerimizle tanışmaya davet ediyoruz."*
 
@@ -31,7 +31,7 @@ Geleneksel Mac temizleyicileri genellikle arka planda sürekli çalışan ağır
 
 *Test Ortamı: Apple M-Serisi Apple Silicon & APFS SSD • 1.200.000 Dosya Havuzu*
 
-| Metrik & Standart | 💎 **İhyâ (v1.6.3 Universal 2)** | 📦 **Geleneksel Abonelikli Araçlar** |
+| Metrik & Standart | 💎 **İhyâ (v1.6.4 Universal 2)** | 📦 **Geleneksel Abonelikli Araçlar** |
 | :--- | :--- | :--- |
 | **Uygulama İkili Boyutu** | **2.8 MB** (Saf Swift Makine Kodu) | **180 MB – 260 MB** (Ağır Frameworkler) |
 | **Arka Planda RAM Tüketimi** | **0.0 MB** (Beklemede Servis Çalıştırmaz) | **180 MB – 350 MB** (24/7 Arka Plan Daemons) |
@@ -68,7 +68,17 @@ Geleneksel Mac temizleyicileri genellikle arka planda sürekli çalışan ağır
 
 ## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
 
-### [v1.6.3] — 24 Ekim 2026 (Güncel Sürüm)
+### [v1.6.4] — 24 Ekim 2026 (En Güncel Sürüm)
+- **macOS 28 ve Sequoia Uyumluluğu (Apple Silicon Yerel Mimari):**
+  - Gelecek nesil macOS sürümleri için tam yerel yürütme bayrakları (`LSArchitecturePriority: arm64`, `LSRequiresNativeExecution: true`) entegre edildi.
+  - Rosetta 2 uyarısı ve mimari gecikmesi sıfırlandı.
+- **Sistem Optimizasyon Motoru Güçlendirildi:**
+  - FinderSync, HotCorners ve FullScreen optimizasyon görevleri sisteme dahil edildi.
+  - 11 çekirdek test paketi %100 yeşil tamamlandı.
+- **Apple Noter Sertifikasyon Onayı:**
+  - Apple Notary Service tarafından denetlenip resmi onaylı DMG olarak imzalandı ve zımbalandı.
+
+### [v1.6.3] — 24 Ekim 2026
 - **Başlangıç & Arka Plan Yöneticisi (Startup Manager):**
   - Mac açıldığında başlayan uygulamaları (Login Items - Kâşif, BetterDisplay vb.) ve arka plan servislerini (LaunchAgents - Adobe, Google, Zoom, Brew vb.) tek merkezden listeleyen ve tek tıkla açıp kapatmayı (toggle) sağlayan yeni mimari entegre edildi.
   - Diskten silinmiş veya bozulmuş "Kırık / Ölü Başlangıç Kayıtları"nı (örneğin kaldırılmış Steam vb.) tek tıkla temizleme motoru eklendi.
