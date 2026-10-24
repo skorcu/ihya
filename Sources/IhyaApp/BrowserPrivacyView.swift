@@ -103,28 +103,16 @@ public struct BrowserPrivacyView: View {
     
     // MARK: - 2. Tarama İlerleme Göstergesi
     private var scanningIndicatorView: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "06B6D4").opacity(0.18))
-                    .frame(width: 120, height: 120)
-                    .blur(radius: 20)
-                
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "22D3EE")))
-                    .scaleEffect(1.6)
-            }
-            
-            Text("Kurulu Tarayıcılar ve Depolar Taranıyor...")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-            
-            Text("Safari, Google Chrome, Brave, Arc ve Firefox önbellekleri inceleniyor...")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
-            Spacer()
-        }
+        LuxuryScanningStageView(
+            title: "Tarayıcılar ve Gizlilik Verileri Taranıyor...",
+            subtitle: "Safari • Google Chrome • Brave • Arc • Firefox • Web Depoları",
+            emblemStyle: .sapphire,
+            emblemIcon: "globe",
+            steps: ["1. Profil Tespiti", "2. Önbellek & Çerez Analizi", "3. Hacim Hesabı"],
+            currentStepIndex: 1,
+            progressFraction: 0.65,
+            currentItemName: "Safari, Google Chrome, Arc, Brave önbellekleri inceleniyor..."
+        )
     }
     
     // MARK: - 3. Boş Sonuç Görünümü

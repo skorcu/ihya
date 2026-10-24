@@ -167,31 +167,16 @@ public struct AppUpdaterView: View {
     
     // MARK: - 3. Taranıyor Durumu
     private var scanningView: some View {
-        VStack(spacing: 24) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "0284C7").opacity(0.18))
-                    .frame(width: 140, height: 140)
-                    .blur(radius: 20)
-                
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: Color(hex: "38BDF8")))
-                    .scaleEffect(1.6)
-            }
-            
-            VStack(spacing: 8) {
-                Text("Uygulama Güncellemeleri Denetleniyor...")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text("Mac'inizdeki yüklü uygulamalar taranıyor ve geliştirici sunucularından son sürümler doğrulanıyor...")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 380)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        LuxuryScanningStageView(
+            title: "Uygulama Güncellemeleri Denetleniyor...",
+            subtitle: "Mac'inizdeki yüklü uygulamalar taranıyor ve geliştirici sunucularından son sürümler doğrulanıyor.",
+            emblemStyle: .sapphire,
+            emblemIcon: "arrow.triangle.2.circlepath",
+            steps: ["1. Uygulama Listesi", "2. Appcast Taraması", "3. Sürüm Doğrulama"],
+            currentStepIndex: 1,
+            progressFraction: 0.65,
+            currentItemName: "Applications taranıyor..."
+        )
     }
     
     // MARK: - 4. Sonuçlar Sahnesi

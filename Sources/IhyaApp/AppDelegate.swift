@@ -77,18 +77,25 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         let hosting = NSHostingView(rootView: contentView)
         
         let win = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 660),
+            contentRect: NSRect(x: 0, y: 0, width: 1140, height: 720),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        win.center()
+        if let primaryScreen = NSScreen.screens.first {
+            let vis = primaryScreen.visibleFrame
+            let x = vis.origin.x + max(20, (vis.width - 1140) / 2)
+            let y = vis.origin.y + max(20, (vis.height - 720) / 2)
+            win.setFrame(NSRect(x: x, y: y, width: 1140, height: 720), display: true)
+        } else {
+            win.center()
+        }
         win.title = ""
         win.titlebarAppearsTransparent = true
         win.titleVisibility = .hidden
         win.contentView = hosting
         win.isReleasedWhenClosed = false
-        win.minSize = NSSize(width: 880, height: 580)
+        win.minSize = NSSize(width: 960, height: 600)
         
         self.window = win
         win.makeKeyAndOrderFront(nil)

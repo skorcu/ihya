@@ -124,4 +124,61 @@ final class IhyaTests: XCTestCase {
         XCTAssertTrue(LicenseManager.shared.verifyKey(validKey))
         XCTAssertFalse(LicenseManager.shared.verifyKey(invalidKey))
     }
+    
+    // MARK: - 6. Çift Dosya Önbellek & Artımlı Hash Testleri
+    func testDuplicateHashCachePersistence() async {
+        let cache = DuplicateHashCache.shared
+        let testPath = "/tmp/ihya_test_video.mp4"
+        let mtime = 99999.0
+        let size: Int64 = 15_000_000
+        let partialKey = "4096_mockprefix_mocksuffix"
+        let fullSHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        
+        await cache.setPartial(path: testPath, mtime: mtime, size: size, partialKey: partialKey)
+        await cache.setFullSHA256(path: testPath, mtime: mtime, size: size, partialKey: partialKey, fullSHA256: fullSHA256)
+        await cache.saveToDisk()
+        
+        let record = await cache.getRecord(path: testPath, currentMTime: mtime, currentSize: size)
+        XCTAssertNotNil(record)
+        XCTAssertEqual(record?.fullSHA256, fullSHA256)
+        XCTAssertEqual(record?.partialKey, partialKey)
+        
+        // Değiştirilmiş mtime veya boyut durumunda önbelleğin geçersiz olması testi
+        let invalidMtimeRecord = await cache.getRecord(path: testPath, currentMTime: mtime + 10.0, currentSize: size)
+        XCTAssertNil(invalidMtimeRecord)
+    }
+    
+    // MARK: - 7. Anlamlı Dosyalar ve Gürültü Süzgeci Testleri
+    func testMeaningfulExtensionsAndNoiseFilter() {
+        // Yaygın kullanıcı dosyaları dahil edilmeli
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("mp4"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("mov"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("jpg"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("png"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("pdf"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("docx"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("xlsx"))
+        XCTAssertTrue(DuplicateFinderEngine.commonMeaningfulExtensions.contains("zip"))
+        
+        // Geliştirici/derleme gürültüleri filtrelenmeli
+        XCTAssertFalse(DuplicateFinderEngine.commonMeaningfulExtensions.contains("dill"))
+        XCTAssertFalse(DuplicateFinderEngine.commonMeaningfulExtensions.contains("bin"))
+        XCTAssertTrue(DuplicateFinderEngine.noiseExtensions.contains("dill"))
+        XCTAssertTrue(DuplicateFinderEngine.noiseExtensions.contains("bin"))
+        XCTAssertTrue(DuplicateFinderEngine.noiseDirectories.contains("node_modules"))
+        XCTAssertTrue(DuplicateFinderEngine.noiseDirectories.contains(".git"))
+    }
+    
+    // MARK: - 8. Klasör Dağılım Özeti Testleri
+    @MainActor
+    func testFolderSummariesCalculation() {
+        let f1 = DuplicateFile(path: "/Users/test/Downloads/a.jpg", name: "a.jpg", isSelectedForDeletion: true)
+        let f2 = DuplicateFile(path: "/Users/test/Desktop/a_copy.jpg", name: "a_copy.jpg", isSelectedForDeletion: true)
+        let group = DuplicateGroup(fileSize: 500_000, sha256: "dummyhash", files: [f1, f2])
+        
+        let summaries = DuplicateFinderEngine.shared.getFolderSummaries(from: [group])
+        XCTAssertEqual(summaries.count, 2)
+        XCTAssertTrue(summaries.contains(where: { $0.folderName == "Downloads" && $0.count == 1 }))
+        XCTAssertTrue(summaries.contains(where: { $0.folderName == "Desktop" && $0.count == 1 }))
+    }
 }

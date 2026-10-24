@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import QuickLookThumbnailing
 import IhyaCore
 
 public enum RetentionRule: String, CaseIterable, Identifiable {
@@ -23,6 +24,8 @@ public struct DuplicateFinderView: View {
     @State private var isTargetedForDrop: Bool = false
     @State private var selectedFileForPreview: DuplicateFile? = nil
     @State private var activeRetentionRule: RetentionRule = .keepOldest
+    @State private var isShowingPreviewInspector: Bool = true
+    @State private var keyMonitor: Any? = nil
     
     public init() {}
     
@@ -61,8 +64,9 @@ public struct DuplicateFinderView: View {
         filteredGroups.reduce(0) { $0 + $1.reclaimableSize }
     }
     
+    // Işık hızında: Her render'da 4.700 dosya baştan gruplanmaz, tarama sonunda üretilen önbellekten okunur
     private var folderSummaries: [FolderDuplicateSummary] {
-        DuplicateFinderEngine.shared.getFolderSummaries(from: activeGroups)
+        dupEngine.cachedFolderSummaries
     }
     
     public var body: some View {
@@ -113,9 +117,14 @@ public struct DuplicateFinderView: View {
                         .frame(maxWidth: .infinity)
                         
                         // Sağ: Görsel Önizleme & Dosya Röntgen Çekmecesi (Side-by-Side Preview)
-                        if let file = selectedFileForPreview ?? filteredGroups.first?.files.first {
+                        if isShowingPreviewInspector, let file = selectedFileForPreview ?? filteredGroups.first?.files.first {
                             VisualPreviewInspector(
                                 file: file,
+                                onClose: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        isShowingPreviewInspector = false
+                                    }
+                                },
                                 onToggleSelection: {
                                     toggleFileSelectionByPath(file.path)
                                 },
@@ -123,7 +132,7 @@ public struct DuplicateFinderView: View {
                                     trashFile(at: file.path)
                                 }
                             )
-                            .frame(width: 310)
+                            .frame(width: 290)
                             .transition(.move(edge: .trailing))
                         }
                     }
@@ -136,6 +145,26 @@ public struct DuplicateFinderView: View {
         .onAppear {
             if dupEngine.scanTargets.isEmpty {
                 dupEngine.scanTargets = DuplicateFinderEngine.defaultScanTargets()
+            }
+            if keyMonitor == nil {
+                keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                    if event.keyCode == 49 { // Boşluk (Space) tuşu
+                        if let responder = NSApp.keyWindow?.firstResponder, responder is NSTextView {
+                            return event
+                        }
+                        if let file = selectedFileForPreview ?? filteredGroups.first?.files.first {
+                            QuickLookHelper.shared.preview(path: file.path)
+                            return nil // Sistem sesini ve varsayılan davranışı engelle
+                        }
+                    }
+                    return event
+                }
+            }
+        }
+        .onDisappear {
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
             }
         }
         .onDrop(of: ["public.file-url"], isTargeted: $isTargetedForDrop) { providers in
@@ -250,6 +279,24 @@ public struct DuplicateFinderView: View {
                         .background(Color.white.opacity(0.03))
                         .cornerRadius(10)
                         
+                        // Akıllı Filtreleme Rozeti
+                        HStack(spacing: 6) {
+                            Image(systemName: "bolt.shield.fill")
+                                .foregroundColor(Color(hex: "34D399"))
+                                .font(.system(size: 11))
+                            Text("⚡ Akıllı Süzgeç:")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(Color(hex: "34D399"))
+                            Text("Videolar, Fotoğraflar, Belgeler, Arşivler taranır; sistem gürültüleri elenir.")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.65))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color(hex: "10B981").opacity(0.12))
+                        .cornerRadius(6)
+                        
                         let selectedCount = dupEngine.scanTargets.filter { $0.isSelected }.count
                         FloatingActionButton(
                             title: selectedCount > 0 ? "Seçilen \(selectedCount) Konumda Çiftleri Ara" : "Lütfen En Az 1 Konum Seçin",
@@ -278,13 +325,15 @@ public struct DuplicateFinderView: View {
     // MARK: - 2. Sonuçlar ve Yönetim Çubuğu
     private var resultsControlBar: some View {
         VStack(spacing: 8) {
-            HStack {
-                HStack(spacing: 8) {
+            // 1. Satır: İstatistik, Sekme ve Eylemler
+            HStack(spacing: 12) {
+                // Sol: Tespit Edilen İkiz Sayısı
+                HStack(spacing: 6) {
                     Image(systemName: "doc.on.doc.fill")
                         .foregroundColor(Color(hex: "38BDF8"))
                         .font(.system(size: 13))
                     
-                    Text("\(activeGroups.count) İkiz Grup Tespit Edildi")
+                    Text("\(activeGroups.count) İkiz Grup")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
                     
@@ -309,14 +358,14 @@ public struct DuplicateFinderView: View {
                 
                 Spacer()
                 
-                // Görünüm Değiştirici: İkizler vs Klasörler Raporu
+                // Orta: Görünüm Değiştirici (İkizler vs Klasörler)
                 HStack(spacing: 0) {
                     Button(action: { isShowingFolderReport = false }) {
                         Text("İkiz Dosyalar")
-                            .font(.system(size: 10, weight: !isShowingFolderReport ? .bold : .medium))
+                            .font(.system(size: 11, weight: !isShowingFolderReport ? .bold : .medium))
                             .foregroundColor(!isShowingFolderReport ? .white : .white.opacity(0.6))
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .padding(.vertical, 4.5)
                             .background(!isShowingFolderReport ? Color(hex: "0284C7").opacity(0.4) : Color.clear)
                             .cornerRadius(5)
                     }
@@ -325,12 +374,12 @@ public struct DuplicateFinderView: View {
                     Button(action: { isShowingFolderReport = true }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chart.bar.doc.horizontal")
-                            Text("Klasörler Raporu (\(folderSummaries.count))")
+                            Text("Klasörler (\(folderSummaries.count))")
                         }
-                        .font(.system(size: 10, weight: isShowingFolderReport ? .bold : .medium))
+                        .font(.system(size: 11, weight: isShowingFolderReport ? .bold : .medium))
                         .foregroundColor(isShowingFolderReport ? .white : .white.opacity(0.6))
                         .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .padding(.vertical, 4.5)
                         .background(isShowingFolderReport ? Color(hex: "0284C7").opacity(0.4) : Color.clear)
                         .cornerRadius(5)
                     }
@@ -338,96 +387,117 @@ public struct DuplicateFinderView: View {
                 }
                 .padding(2)
                 .background(Color.white.opacity(0.08))
-                .cornerRadius(6)
+                .cornerRadius(7)
                 
-                Text("|").foregroundColor(.white.opacity(0.2))
-                
-                // Akıllı Öncelik Kuralı Seçici Menü (Hangi Klasördekiler Korunsun)
-                Menu {
-                    Section("Akıllı Tarih Kuralları") {
-                        Button("En Eski Dosyayı Koru (Orijinal)") {
-                            applyDateRule(keepOldest: true)
+                // Sağ Eylemler: Akıllı Kural, Seçimler, Önizleme Paneli, Yeni Tarama
+                HStack(spacing: 8) {
+                    Menu {
+                        Section("Akıllı Tarih Kuralları") {
+                            Button("En Eski Dosyayı Koru (Önerilen)") {
+                                applyDateRule(keepOldest: true)
+                            }
+                            Button("En Yeni Dosyayı Koru") {
+                                applyDateRule(keepOldest: false)
+                            }
                         }
-                        Button("En Yeni Dosyayı Koru") {
-                            applyDateRule(keepOldest: false)
-                        }
-                    }
-                    
-                    if !folderSummaries.isEmpty {
-                        Section("Hangi Klasördekiler Korunsun?") {
-                            ForEach(folderSummaries) { summary in
-                                Button("👑 Sadece '\(summary.folderName)' Koru") {
-                                    applyFolderRule(keepFolderPath: summary.folderPath)
+                        
+                        if !folderSummaries.isEmpty {
+                            Section("Hangi Klasördekiler Korunsun?") {
+                                ForEach(folderSummaries) { summary in
+                                    Button("👑 Sadece '\(summary.folderName)' Koru") {
+                                        applyFolderRule(keepFolderPath: summary.folderPath)
+                                    }
                                 }
                             }
                         }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "wand.and.stars")
+                            Text("Akıllı Kural")
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8))
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(hex: "38BDF8"))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4.5)
+                        .background(Color(hex: "0284C7").opacity(0.2))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color(hex: "38BDF8").opacity(0.4), lineWidth: 1)
+                        )
                     }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "wand.and.stars")
-                        Text("Akıllı Kural Seç")
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8))
+                    .menuStyle(.borderlessButton)
+                    
+                    Button("Tümünü Seç") {
+                        selectAllDuplicates(true)
                     }
-                    .font(.system(size: 10, weight: .semibold))
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundColor(Color(hex: "38BDF8"))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color(hex: "0284C7").opacity(0.2))
-                    .cornerRadius(6)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(hex: "38BDF8").opacity(0.4), lineWidth: 1)
-                    )
-                }
-                .menuStyle(.borderlessButton)
-                
-                Text("|").foregroundColor(.white.opacity(0.2))
-                
-                // Seçim Düğmeleri
-                Button("Tümünü Seç") {
-                    selectAllDuplicates(true)
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(Color(hex: "38BDF8"))
-                
-                Text("|").foregroundColor(.white.opacity(0.2))
-                
-                Button("Temizle") {
-                    selectAllDuplicates(false)
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.6))
-                
-                Spacer()
-                
-                Button(action: {
-                    dupEngine.hasScanned = false
-                    dupEngine.duplicateGroups = []
-                    dupEngine.scanProgress = nil
-                    HapticManager.shared.triggerClick()
-                }) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Yeni Tarama Yap")
+                    
+                    Text("|").foregroundColor(.white.opacity(0.2))
+                    
+                    Button("Temizle") {
+                        selectAllDuplicates(false)
                     }
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(Color(hex: "38BDF8"))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4.5)
-                    .background(Color(hex: "0284C7").opacity(0.18))
-                    .cornerRadius(6)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(hex: "38BDF8").opacity(0.35), lineWidth: 1)
-                    )
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+                    
+                    Text("|").foregroundColor(.white.opacity(0.2))
+                    
+                    // Önizleme Paneli Aç/Kapat Butonu
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            isShowingPreviewInspector.toggle()
+                            HapticManager.shared.triggerClick()
+                        }
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sidebar.right")
+                            Text(isShowingPreviewInspector ? "Paneli Gizle" : "Önizleme")
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(isShowingPreviewInspector ? Color(hex: "38BDF8") : .white.opacity(0.7))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4.5)
+                        .background(isShowingPreviewInspector ? Color(hex: "0284C7").opacity(0.25) : Color.white.opacity(0.06))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(isShowingPreviewInspector ? Color(hex: "38BDF8").opacity(0.4) : Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: {
+                        dupEngine.hasScanned = false
+                        dupEngine.duplicateGroups = []
+                        dupEngine.scanProgress = nil
+                        HapticManager.shared.triggerClick()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.counterclockwise")
+                            Text("Yeni Tarama")
+                        }
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(hex: "38BDF8"))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4.5)
+                        .background(Color(hex: "0284C7").opacity(0.18))
+                        .cornerRadius(6)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color(hex: "38BDF8").opacity(0.35), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             
-            // Kategori Filtre Hapları
+            // 2. Satır: Kategori Filtre Hapları & Boşluk Tuşu İpucu Rozeti
             HStack(spacing: 6) {
                 ForEach(FileCategoryType.allCases, id: \.self) { cat in
                     Button(action: {
@@ -437,8 +507,8 @@ public struct DuplicateFinderView: View {
                         Text(cat.rawValue)
                             .font(.system(size: 10, weight: selectedFilter == cat ? .bold : .medium))
                             .foregroundColor(selectedFilter == cat ? .white : .white.opacity(0.6))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3.5)
                             .background(selectedFilter == cat ? Color(hex: "0284C7").opacity(0.3) : Color.white.opacity(0.04))
                             .cornerRadius(6)
                             .overlay(
@@ -448,12 +518,38 @@ public struct DuplicateFinderView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                
                 Spacer()
+                
+                // Boşluk Tuşu İpucu Rozeti (Tıklanınca da QuickLook açar)
+                Button(action: {
+                    if let file = selectedFileForPreview ?? filteredGroups.first?.files.first {
+                        QuickLookHelper.shared.preview(path: file.path)
+                    }
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "space")
+                            .font(.system(size: 9, weight: .black))
+                        Text("Boşluk Tuşu: Hızlı Önizleme")
+                            .font(.system(size: 9.5, weight: .semibold))
+                    }
+                    .foregroundColor(Color(hex: "38BDF8"))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3.5)
+                    .background(Color(hex: "0284C7").opacity(0.15))
+                    .cornerRadius(5)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(Color(hex: "38BDF8").opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .help("Seçili dosyayı macOS QuickLook penceresinde tam boy önizler")
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(Color.black.opacity(0.2))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 9)
+        .background(Color.black.opacity(0.22))
         .overlay(
             Rectangle()
                 .fill(Color.white.opacity(0.06))
@@ -1024,6 +1120,7 @@ struct DuplicateFileRow: View {
                 Image(systemName: "checkmark.seal.fill")
                     .foregroundColor(Color(hex: "10B981"))
                     .font(.system(size: 14))
+                    .help("Bu dosya grubun orijinal nüshasıdır")
             } else {
                 Button(action: onToggle) {
                     Image(systemName: file.isSelectedForDeletion ? "checkmark.circle.fill" : "circle")
@@ -1062,6 +1159,18 @@ struct DuplicateFileRow: View {
                 .font(.system(size: 9))
                 .foregroundColor(.white.opacity(0.4))
             
+            // Hızlı QuickLook Butonu
+            Button(action: {
+                onClickRow()
+                QuickLookHelper.shared.preview(path: file.path)
+            }) {
+                Image(systemName: "eye")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(hex: "38BDF8").opacity(0.75))
+            }
+            .buttonStyle(.plain)
+            .help("macOS QuickLook İle Hızlı Önizle (Boşluk)")
+            
             Button(action: onDelete) {
                 Image(systemName: "trash")
                     .font(.system(size: 10))
@@ -1072,7 +1181,7 @@ struct DuplicateFileRow: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(isSelectedInInspector ? Color(hex: "0284C7").opacity(0.2) : Color.white.opacity(0.02))
+        .background(isSelectedInInspector ? Color(hex: "0284C7").opacity(0.25) : Color.white.opacity(0.02))
         .cornerRadius(6)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -1084,48 +1193,48 @@ struct DuplicateFileRow: View {
 // MARK: - Görsel Önizleme & Dosya Röntgen Çekmecesi (Side-by-Side Visual Preview)
 struct VisualPreviewInspector: View {
     let file: DuplicateFile
+    let onClose: () -> Void
     let onToggleSelection: () -> Void
     let onTrash: () -> Void
     
-    private var isImageFile: Bool {
-        let ext = (file.path as NSString).pathExtension.lowercased()
-        return ["jpg", "jpeg", "png", "heic", "webp", "gif", "tiff", "bmp"].contains(ext)
-    }
+    @State private var thumbnailImage: NSImage? = nil
     
-    private var previewImage: NSImage? {
-        guard isImageFile else { return nil }
-        return NSImage(contentsOfFile: file.path)
-    }
-    
-    private var imageDimensions: String {
-        guard let img = previewImage else { return "" }
-        if let rep = img.representations.first {
-            return "\(rep.pixelsWide) × \(rep.pixelsHigh) piksel"
-        }
-        return "\(Int(img.size.width)) × \(Int(img.size.height)) pt"
+    private var fileExtension: String {
+        (file.path as NSString).pathExtension.uppercased()
     }
     
     var body: some View {
         VStack(spacing: 12) {
-            // Başlık
+            // Başlık & Kapatma Butonu
             HStack {
-                Image(systemName: "eye.fill")
-                    .foregroundColor(Color(hex: "38BDF8"))
-                    .font(.system(size: 12))
-                Text("Görsel İnceleme & Röntgen")
-                    .font(.system(size: 11, weight: .bold))
-                    .foregroundColor(.white)
+                HStack(spacing: 6) {
+                    Image(systemName: "eye.fill")
+                        .foregroundColor(Color(hex: "38BDF8"))
+                        .font(.system(size: 12))
+                    Text("Görsel Röntgen")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                
                 Spacer()
+                
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundColor(.white.opacity(0.4))
+                }
+                .buttonStyle(.plain)
+                .help("Önizleme Panelini Kapat")
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
             
-            // Görsel Önizleme Alanı
+            // Görsel Önizleme Alanı (Canlı Thumbnail)
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color.black.opacity(0.3))
+                    .fill(Color.black.opacity(0.35))
                 
-                if let img = previewImage {
+                if let img = thumbnailImage {
                     Image(nsImage: img)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -1136,36 +1245,51 @@ struct VisualPreviewInspector: View {
                         Image(nsImage: NSWorkspace.shared.icon(forFile: file.path))
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(width: 64, height: 64)
+                            .frame(width: 56, height: 56)
                         
-                        Text((file.path as NSString).pathExtension.uppercased())
+                        Text(fileExtension.isEmpty ? "DOSYA" : fileExtension)
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
                             .foregroundColor(.white.opacity(0.6))
                     }
-                    .frame(height: 140)
+                    .frame(height: 130)
                 }
             }
             .padding(.horizontal, 14)
-            
-            // Boyut ve Çözünürlük Hapı
-            if !imageDimensions.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 9))
-                    Text(imageDimensions)
-                        .font(.system(size: 10, weight: .semibold, design: .monospaced))
-                }
-                .foregroundColor(Color(hex: "38BDF8"))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(Color(hex: "0284C7").opacity(0.2))
-                .cornerRadius(5)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                QuickLookHelper.shared.preview(path: file.path)
             }
+            
+            // Büyük QuickLook Butonu (Space bar ikizi)
+            Button(action: {
+                QuickLookHelper.shared.preview(path: file.path)
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("QuickLook Tam Boy İncele (Boşluk)")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 7)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "0284C7"), Color(hex: "38BDF8")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(7)
+                .shadow(color: Color(hex: "0284C7").opacity(0.35), radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
             
             // Detaylı Bilgi Listesi
             VStack(alignment: .leading, spacing: 6) {
                 detailRow(label: "Dosya Adı", value: file.name)
-                detailRow(label: "Durum", value: file.isOriginal ? "Orijinal Nüsha" : "Kopya")
+                detailRow(label: "Durum", value: file.isOriginal ? "Orijinal Nüsha (Korunur)" : "Kopya (Silinebilir)")
                 detailRow(label: "Değiştirilme", value: file.formattedDate)
                 detailRow(label: "Konum", value: file.path)
             }
@@ -1174,27 +1298,8 @@ struct VisualPreviewInspector: View {
             .cornerRadius(8)
             .padding(.horizontal, 14)
             
-            // Hızlı Eylem Düğmeleri
+            // Alt Hızlı Eylemler: Finder'da Aç & Çöpe At
             HStack(spacing: 8) {
-                // Quick Look Aç
-                Button(action: {
-                    let url = URL(fileURLWithPath: file.path)
-                    NSWorkspace.shared.open(url)
-                }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        Text("Aç / Önizle")
-                    }
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
-                    .background(Color.white.opacity(0.08))
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
-                
-                // Finder'da Göster
                 Button(action: {
                     NSWorkspace.shared.selectFile(file.path, inFileViewerRootedAtPath: "")
                 }) {
@@ -1205,8 +1310,22 @@ struct VisualPreviewInspector: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 6)
                     .background(Color.white.opacity(0.08))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: onTrash) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash.fill")
+                        Text("Çöpe At")
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color(hex: "F87171"))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: "EF4444").opacity(0.15))
                     .cornerRadius(6)
                 }
                 .buttonStyle(.plain)
@@ -1222,6 +1341,39 @@ struct VisualPreviewInspector: View {
                 .frame(width: 1),
             alignment: .leading
         )
+        .onAppear {
+            loadThumbnail()
+        }
+        .onChange(of: file.id) { _, _ in
+            loadThumbnail()
+        }
+    }
+    
+    private func loadThumbnail() {
+        thumbnailImage = nil
+        let ext = (file.path as NSString).pathExtension.lowercased()
+        if ["jpg", "jpeg", "png", "heic", "webp", "gif", "tiff", "bmp"].contains(ext) {
+            if let direct = NSImage(contentsOfFile: file.path) {
+                self.thumbnailImage = direct
+                return
+            }
+        }
+        
+        let url = URL(fileURLWithPath: file.path)
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        let req = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: 320, height: 220),
+            scale: scale,
+            representationTypes: .thumbnail
+        )
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: req) { rep, _ in
+            guard let rep = rep else { return }
+            let img = rep.nsImage
+            Task { @MainActor in
+                self.thumbnailImage = img
+            }
+        }
     }
     
     private func detailRow(label: String, value: String) -> some View {

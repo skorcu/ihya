@@ -184,21 +184,16 @@ public struct AppUninstallerView: View {
     
     // MARK: - 2. Tarama Aşaması
     private var scanningIndicatorView: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            ProgressView()
-                .scaleEffect(1.4)
-                .tint(Color(hex: "EF4444"))
-            
-            Text("Derin Sistem Kütüphaneleri Taranıyor...")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
-            
-            Text("Application Support • Caches • Containers • WebKit • Preferences")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
-            Spacer()
-        }
+        LuxuryScanningStageView(
+            title: "Derin Sistem Kütüphaneleri Taranıyor...",
+            subtitle: "Application Support • Caches • Containers • WebKit • Preferences",
+            emblemStyle: .crimson,
+            emblemIcon: "xmark.bin.fill",
+            steps: ["1. Uygulama Paketleri", "2. Kütüphane Kırıntıları", "3. Yetim Artıklar"],
+            currentStepIndex: 1,
+            progressFraction: 0.7,
+            currentItemName: "Uygulama kırıntıları ve yetim kütüphaneler tahlil ediliyor..."
+        )
     }
     
     // MARK: - 3. Üst Kontrol Çubuğu

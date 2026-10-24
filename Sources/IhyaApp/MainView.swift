@@ -117,7 +117,7 @@ public struct MainView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .frame(minWidth: 880, minHeight: 580)
+        .frame(minWidth: 960, minHeight: 600)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
@@ -1578,6 +1578,87 @@ public struct MainView: View {
                             .font(.system(size: 11, design: .monospaced))
                             .foregroundColor(.white)
                     }
+                }
+                .padding(18)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(14)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+                
+                // Geliştirici & İletişim Kartı (Kâşif Standardı)
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Geliştirici & İletişim")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                    
+                    HStack(spacing: 24) {
+                        // Sütun 1: Kişi & Telefon
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "person.fill")
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                                    .font(.system(size: 12))
+                                    .frame(width: 14)
+                                Text("Sarkaç Adam")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.white)
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Image(systemName: "phone.fill")
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                                    .font(.system(size: 12))
+                                    .frame(width: 14)
+                                Link("0532 630 88 77", destination: URL(string: "tel://05326308877")!)
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                            }
+                        }
+                        
+                        Divider()
+                            .frame(height: 38)
+                            .background(Color.white.opacity(0.12))
+                        
+                        // Sütun 2: E-posta & Web Siteleri
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "envelope.fill")
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                                    .font(.system(size: 12))
+                                    .frame(width: 14)
+                                Link("info@caneser.com", destination: URL(string: "mailto:info@caneser.com")!)
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+                            
+                            HStack(spacing: 8) {
+                                Image(systemName: "globe")
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                                    .font(.system(size: 12))
+                                    .frame(width: 14)
+                                HStack(spacing: 6) {
+                                    Link("caneser.com", destination: URL(string: "https://caneser.com")!)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(Color(hex: "38BDF8"))
+                                    Text("•")
+                                        .foregroundColor(.white.opacity(0.3))
+                                    Link("sarkacadam.com", destination: URL(string: "https://sarkacadam.com")!)
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(Color(hex: "F59E0B"))
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                        .background(Color.white.opacity(0.08))
+                        .padding(.vertical, 2)
+                    
+                    Text("macOS Sonoma ve Sequoia için saf Swift, Metal & POSIX mimarisiyle geliştirilmiştir. Tüm hakları saklıdır.")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.45))
                 }
                 .padding(18)
                 .background(Color.white.opacity(0.04))

@@ -79,10 +79,34 @@ public struct FolderDuplicateSummary: Identifiable, Sendable {
 public final class DuplicateFinderEngine: ObservableObject {
     public static let shared = DuplicateFinderEngine()
     
+    // MARK: - Anlamlı Dosya Uzantıları ve Gürültü Filtresi
+    nonisolated public static let commonMeaningfulExtensions: Set<String> = [
+        // Video
+        "mp4", "mov", "m4v", "mkv", "avi", "webm", "flv", "wmv",
+        // Görseller
+        "jpg", "jpeg", "png", "heic", "heif", "webp", "gif", "tiff", "tif", "svg", "raw", "cr2", "nef", "psd", "ai",
+        // Belgeler
+        "pdf", "docx", "doc", "xlsx", "xls", "pptx", "ppt", "pages", "numbers", "key", "txt", "rtf", "csv", "epub", "md",
+        // Arşivler & İmajlar
+        "zip", "rar", "7z", "tar", "gz", "dmg", "iso", "pkg", "bz2", "xz",
+        // Ses & Müzik
+        "mp3", "wav", "m4a", "aac", "flac", "ogg", "aiff"
+    ]
+    
+    nonisolated public static let noiseDirectories: Set<String> = [
+        ".git", "node_modules", "deriveddata", ".build", ".gradle", ".cargo", "pods", ".venv", "__pycache__", "venv"
+    ]
+    
+    nonisolated public static let noiseExtensions: Set<String> = [
+        "dill", "bin", "pyc", "o", "a", "dylib", "class", "lock", "tmp", "swp", "log"
+    ]
+    
+    @Published public var onlyCommonUserFiles: Bool = true
     @Published public var isScanning: Bool = false
     @Published public var hasScanned: Bool = false
     @Published public var scanProgress: DuplicateScanProgress? = nil
     @Published public var duplicateGroups: [DuplicateGroup] = []
+    @Published public var cachedFolderSummaries: [FolderDuplicateSummary] = []
     @Published public var scanTargets: [ScanTargetItem] = []
     
     private var currentScanTask: Task<Void, Never>? = nil
@@ -153,6 +177,7 @@ public final class DuplicateFinderEngine: ObservableObject {
             
             if !Task.isCancelled {
                 self.duplicateGroups = groups
+                self.cachedFolderSummaries = self.getFolderSummaries(from: groups)
                 self.hasScanned = true
                 self.isScanning = false
                 onCompletion?()
@@ -197,8 +222,9 @@ public final class DuplicateFinderEngine: ObservableObject {
         ))
         
         // 1. Aşama: Boyut Eşleme (Tüm seçilen dizinlerde)
+        let filterCommonOnly = self.onlyCommonUserFiles
         let candidatesBySize = await Task.detached(priority: .userInitiated) {
-            self.collectFilesBySize(inDirectories: validPaths, minSize: minSize, onProgress: onProgress)
+            self.collectFilesBySize(inDirectories: validPaths, minSize: minSize, onlyCommonUserFiles: filterCommonOnly, onProgress: onProgress)
         }.value
         
         guard !candidatesBySize.isEmpty && !Task.isCancelled else {
@@ -218,9 +244,7 @@ public final class DuplicateFinderEngine: ObservableObject {
         let totalCandidatesCount = candidatesBySize.values.reduce(0) { $0 + $1.count }
         
         // 2 & 3. Aşama: Prefix (4KB) ve Suffix (4KB) Hash Filtresi
-        let candidatesByPartialHash = await Task.detached(priority: .userInitiated) {
-            self.filterByPartialHashes(candidatesBySize: candidatesBySize, totalCandidateFiles: totalCandidatesCount, onProgress: onProgress)
-        }.value
+        let candidatesByPartialHash = await self.filterByPartialHashes(candidatesBySize: candidatesBySize, totalCandidateFiles: totalCandidatesCount, onProgress: onProgress)
         
         guard !candidatesByPartialHash.isEmpty && !Task.isCancelled else {
             if !Task.isCancelled {
@@ -268,6 +292,7 @@ public final class DuplicateFinderEngine: ObservableObject {
     nonisolated private func collectFilesBySize(
         inDirectories dirs: [String],
         minSize: Int64,
+        onlyCommonUserFiles: Bool,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) -> [Int64: [String]] {
         var sizeMap: [Int64: [String]] = [:]
@@ -310,6 +335,20 @@ public final class DuplicateFinderEngine: ObservableObject {
                       let size = values.fileSize,
                       Int64(size) >= minSize else { continue }
                 
+                // Anlamlı Kullanıcı Dosyası & Gürültü Süzgeci
+                let lowerPath = path.lowercased()
+                let ext = (path as NSString).pathExtension.lowercased()
+                
+                // Geliştirici ve derleyici önbellek klasörlerini atla
+                let hasNoiseDir = Self.noiseDirectories.contains(where: { lowerPath.contains("/\($0)/") || lowerPath.hasSuffix("/\($0)") })
+                if hasNoiseDir { continue }
+                if Self.noiseExtensions.contains(ext) { continue }
+                
+                // Eğer sadece kullanıcı dosyaları seçiliyse (Varsayılan: Medya, Belgeler, Arşivler)
+                if onlyCommonUserFiles && !Self.commonMeaningfulExtensions.contains(ext) {
+                    continue
+                }
+                
                 let fileSize = Int64(size)
                 sizeMap[fileSize, default: []].append(path)
             }
@@ -328,12 +367,12 @@ public final class DuplicateFinderEngine: ObservableObject {
         return filtered
     }
     
-    // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi
+    // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi (Önbellek Destekli)
     nonisolated private func filterByPartialHashes(
         candidatesBySize: [Int64: [String]],
         totalCandidateFiles: Int,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
-    ) -> [[String]] {
+    ) async -> [[String]] {
         var candidateClusters: [[String]] = []
         var processed = 0
         let total = max(1, totalCandidateFiles)
@@ -357,8 +396,22 @@ public final class DuplicateFinderEngine: ObservableObject {
                     ))
                 }
                 
-                if let partialKey = computePartialKey(path: path, fileSize: fileSize) {
-                    partialMap[partialKey, default: []].append(path)
+                // 1. Önce Hızlı Önbellekten sorgula
+                let mtime = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+                let cached = await DuplicateHashCache.shared.getRecord(path: path, currentMTime: mtime, currentSize: fileSize)
+                
+                let partialKey: String?
+                if let cp = cached?.partialKey {
+                    partialKey = cp
+                } else if let computed = computePartialKey(path: path, fileSize: fileSize) {
+                    partialKey = computed
+                    await DuplicateHashCache.shared.setPartial(path: path, mtime: mtime, size: fileSize, partialKey: computed)
+                } else {
+                    partialKey = nil
+                }
+                
+                if let pk = partialKey {
+                    partialMap[pk, default: []].append(path)
                 }
             }
             
@@ -395,36 +448,50 @@ public final class DuplicateFinderEngine: ObservableObject {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
     
-    // MARK: - 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256
+    // MARK: - 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256 (Kademeli & CPU Korumalı)
     nonisolated private func computeFullHashesConcurrently(
         candidates: [[String]],
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) async -> [String: (size: Int64, paths: [String])] {
-        let totalFiles = candidates.reduce(0) { $0 + $1.count }
+        var allPaths: [String] = []
+        for cluster in candidates {
+            for path in cluster {
+                allPaths.append(path)
+            }
+        }
+        let totalFiles = allPaths.count
         guard totalFiles > 0 else { return [:] }
         
+        // İşlemci yükünü sınırla: Max CPU / 2 worker (Diğer sekmelerin ve sistemin yavaşlamaması için)
+        let maxWorkers = max(2, min(4, ProcessInfo.processInfo.activeProcessorCount / 2))
+        
         return await withTaskGroup(of: (String, String, Int64)?.self) { group in
-            for cluster in candidates {
-                if Task.isCancelled { break }
-                for path in cluster {
-                    if Task.isCancelled { break }
-                    group.addTask {
-                        guard !Task.isCancelled else { return nil }
-                        guard let hash = self.computeFullSHA256(path: path) else { return nil }
-                        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
-                        return (hash, path, size)
-                    }
+            var pathIterator = allPaths.makeIterator()
+            var activeWorkers = 0
+            
+            while activeWorkers < maxWorkers, let path = pathIterator.next() {
+                activeWorkers += 1
+                group.addTask(priority: .utility) {
+                    return await self.processSingleFileFullHash(path: path)
                 }
             }
             
             var groups: [String: (size: Int64, paths: [String])] = [:]
             var processed = 0
+            
             for await item in group {
                 if Task.isCancelled {
                     group.cancelAll()
                     break
                 }
                 processed += 1
+                
+                if let nextPath = pathIterator.next(), !Task.isCancelled {
+                    group.addTask(priority: .utility) {
+                        return await self.processSingleFileFullHash(path: nextPath)
+                    }
+                }
+                
                 guard let (hash, path, size) = item else { continue }
                 
                 if processed % 5 == 0 || processed == totalFiles {
@@ -445,10 +512,42 @@ public final class DuplicateFinderEngine: ObservableObject {
                 } else {
                     groups[hash]?.paths.append(path)
                 }
+                
+                // Düzenli aralıklarla CPU serbest bırak (UI ve diğer sekmeler asla kasmasın)
+                if processed % 15 == 0 {
+                    await Task.yield()
+                }
+            }
+            
+            // Tarama tamamlandığında önbelleği diske yaz
+            Task {
+                await DuplicateHashCache.shared.saveToDisk()
             }
             
             return groups.filter { $0.value.paths.count > 1 }
         }
+    }
+    
+    nonisolated private func processSingleFileFullHash(path: String) async -> (String, String, Int64)? {
+        guard !Task.isCancelled else { return nil }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+        let size = (attrs?[.size] as? Int64) ?? 0
+        let mtime = (attrs?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        
+        // 1. Önbellek kontrolü: Dosya boyutu ve değiştirilme tarihi aynıysa diskten okumayı atla!
+        if let cached = await DuplicateHashCache.shared.getRecord(path: path, currentMTime: mtime, currentSize: size),
+           let fullHash = cached.fullSHA256 {
+            return (fullHash, path, size)
+        }
+        
+        // 2. Diski oku
+        guard let hash = computeFullSHA256(path: path) else { return nil }
+        
+        // 3. Önbelleğe kaydet
+        let partial = computePartialKey(path: path, fileSize: size) ?? ""
+        await DuplicateHashCache.shared.setFullSHA256(path: path, mtime: mtime, size: size, partialKey: partial, fullSHA256: hash)
+        
+        return (hash, path, size)
     }
     
     nonisolated private func computeFullSHA256(path: String) -> String? {
