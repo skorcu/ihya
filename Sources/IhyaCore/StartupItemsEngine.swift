@@ -89,45 +89,43 @@ public final class StartupItemsEngine: ObservableObject, @unchecked Sendable {
     private func fetchLoginItems() -> [StartupItem] {
         var list: [StartupItem] = []
         let script = """
+        osascript -e '
         tell application "System Events"
             set out to ""
             repeat with anItem in every login item
                 set n to name of anItem
                 set p to path of anItem
-                set out to out & n & "<SEP>" & p & "\\n"
+                set out to out & n & "<SEP>" & p & linefeed
             end repeat
             return out
         end tell
+        '
         """
         
         var activeNames = Set<String>()
-        var error: NSDictionary?
-        if let appleScript = NSAppleScript(source: script) {
-            let output = appleScript.executeAndReturnError(&error)
-            if let str = output.stringValue {
-                let lines = str.components(separatedBy: "\n")
-                for line in lines where !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    let parts = line.components(separatedBy: "<SEP>")
-                    guard parts.count >= 2 else { continue }
-                    let name = parts[0].trimmingCharacters(in: .whitespaces)
-                    let path = parts[1].trimmingCharacters(in: .whitespaces)
-                    
-                    activeNames.insert(name)
-                    
-                    let isBroken = path == "missing value" || path.isEmpty || !FileManager.default.fileExists(atPath: path)
-                    let vendor = detectVendor(name: name, path: path)
-                    
-                    list.append(StartupItem(
-                        name: name,
-                        path: path,
-                        type: .loginItem,
-                        isEnabled: true,
-                        isBroken: isBroken,
-                        vendor: vendor,
-                        plistPath: nil
-                    ))
-                }
-            }
+        let output = shell(script)
+        let lines = output.components(separatedBy: "\n")
+        for line in lines where !line.trimmingCharacters(in: .whitespaces).isEmpty {
+            let parts = line.components(separatedBy: "<SEP>")
+            guard parts.count >= 2 else { continue }
+            let name = parts[0].trimmingCharacters(in: .whitespaces)
+            let path = parts[1].trimmingCharacters(in: .whitespaces)
+            guard !name.isEmpty else { continue }
+            
+            activeNames.insert(name)
+            
+            let isBroken = path == "missing value" || path.isEmpty || !FileManager.default.fileExists(atPath: path)
+            let vendor = detectVendor(name: name, path: path)
+            
+            list.append(StartupItem(
+                name: name,
+                path: path,
+                type: .loginItem,
+                isEnabled: true,
+                isBroken: isBroken,
+                vendor: vendor,
+                plistPath: nil
+            ))
         }
         
         // Kullanıcı daha önce İhyâ içinden bir Login Item'ı devre dışı bıraktıysa:
@@ -218,15 +216,8 @@ public final class StartupItemsEngine: ObservableObject, @unchecked Sendable {
     private func toggleLoginItem(_ item: StartupItem) async -> Bool {
         if item.isEnabled {
             // Devre dışı bırak: System Events'ten sil ve İhyâ hafızasına kaydet
-            let script = """
-            tell application "System Events"
-                delete (every login item whose name is "\(item.name)")
-            end tell
-            """
-            var err: NSDictionary?
-            if let appleScript = NSAppleScript(source: script) {
-                appleScript.executeAndReturnError(&err)
-            }
+            let cmd = "osascript -e 'tell application \"System Events\" to delete (every login item whose name is \"\(item.name)\")'"
+            _ = shell(cmd)
             
             var disabledDict = UserDefaults.standard.dictionary(forKey: disabledLoginItemsKey) as? [String: String] ?? [:]
             disabledDict[item.name] = item.path
@@ -234,15 +225,8 @@ public final class StartupItemsEngine: ObservableObject, @unchecked Sendable {
         } else {
             // Etkinleştir: System Events'e yeniden ekle ve İhyâ hafızasından kaldır
             if !item.path.isEmpty && item.path != "missing value" && FileManager.default.fileExists(atPath: item.path) {
-                let script = """
-                tell application "System Events"
-                    make new login item at end with properties {path:"\(item.path)", hidden:false}
-                end tell
-                """
-                var err: NSDictionary?
-                if let appleScript = NSAppleScript(source: script) {
-                    appleScript.executeAndReturnError(&err)
-                }
+                let cmd = "osascript -e 'tell application \"System Events\" to make new login item at end with properties {path:\"\(item.path)\", hidden:false}'"
+                _ = shell(cmd)
             }
             
             var disabledDict = UserDefaults.standard.dictionary(forKey: disabledLoginItemsKey) as? [String: String] ?? [:]
@@ -285,15 +269,8 @@ public final class StartupItemsEngine: ObservableObject, @unchecked Sendable {
     // MARK: - 5. Öğeyi Tamamen Kaldır (Sil)
     public func removeItem(_ item: StartupItem) async -> Bool {
         if item.type == .loginItem {
-            let script = """
-            tell application "System Events"
-                delete (every login item whose name is "\(item.name)")
-            end tell
-            """
-            var err: NSDictionary?
-            if let appleScript = NSAppleScript(source: script) {
-                appleScript.executeAndReturnError(&err)
-            }
+            let cmd = "osascript -e 'tell application \"System Events\" to delete (every login item whose name is \"\(item.name)\")'"
+            _ = shell(cmd)
             var disabledDict = UserDefaults.standard.dictionary(forKey: disabledLoginItemsKey) as? [String: String] ?? [:]
             disabledDict.removeValue(forKey: item.name)
             UserDefaults.standard.set(disabledDict, forKey: disabledLoginItemsKey)
