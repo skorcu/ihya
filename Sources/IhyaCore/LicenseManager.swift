@@ -25,17 +25,17 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
     
     @Published public private(set) var activeLicenseKey: String = ""
     @Published public private(set) var hasPersonalLicense: Bool = false
-    @Published public private(set) var isPromotionalProActive: Bool = true
+    @Published public private(set) var isPromotionalProActive: Bool = false
     @Published public private(set) var isProUnlocked: Bool = true
     @Published public private(set) var licenseTier: LicenseTier = .proLifetime
+    @Published public private(set) var hwidGrantTitle: String? = nil
+    @Published public private(set) var hwidGrantExpiresAt: String? = nil
     
     private init() {
         loadSavedLicense()
         Task {
             await syncRemotePromoStatus()
-            if !hasPersonalLicense {
-                await autoRestoreHardwareLicense()
-            }
+            await autoRestoreHardwareLicense()
         }
     }
     
@@ -43,7 +43,7 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
         if defaults.object(forKey: promoStatusPrefKey) != nil {
             self.isPromotionalProActive = defaults.bool(forKey: promoStatusPrefKey)
         } else {
-            self.isPromotionalProActive = true
+            self.isPromotionalProActive = false
         }
         
         if let key = defaults.string(forKey: licenseKeyPrefKey), !key.isEmpty, verifyKey(key) {
@@ -80,6 +80,25 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
         }
     }
     
+    @MainActor
+    public func applyRemotePromoStatus(_ promoActive: Bool) {
+        self.isPromotionalProActive = promoActive
+        self.defaults.set(promoActive, forKey: self.promoStatusPrefKey)
+        self.updateProStatus()
+    }
+    
+    @MainActor
+    public func applyHwidProGrant(key: String, durationTitle: String?, expiresAt: String?) {
+        self.activeLicenseKey = key
+        self.hasPersonalLicense = true
+        self.isProUnlocked = true
+        self.licenseTier = .proLifetime
+        self.hwidGrantTitle = durationTitle
+        self.hwidGrantExpiresAt = expiresAt
+        self.defaults.set(key, forKey: self.licenseKeyPrefKey)
+        self.defaults.set(true, forKey: self.licenseStatusPrefKey)
+    }
+    
     public func syncRemotePromoStatus() async {
         guard let url = URL(string: "\(Self.serverBaseURL)/api/ihya/version.json") else { return }
         var request = URLRequest(url: url)
@@ -91,11 +110,9 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
             let (data, response) = try await URLSession.shared.data(for: request)
             if let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                let promoActive = json["promo_pro_active"] as? Bool ?? true
+                let promoActive = json["promo_pro_active"] as? Bool ?? false
                 await MainActor.run {
-                    self.isPromotionalProActive = promoActive
-                    self.defaults.set(promoActive, forKey: self.promoStatusPrefKey)
-                    self.updateProStatus()
+                    self.applyRemotePromoStatus(promoActive)
                 }
             }
         } catch {}
@@ -119,19 +136,25 @@ public final class LicenseManager: ObservableObject, @unchecked Sendable {
     
     public func autoRestoreHardwareLicense() async {
         let hwid = HardwareFingerprint.machineId
-        guard let url = URL(string: "\(Self.serverBaseURL)/api/ihya/check-hwid?hwid=\(hwid)") else { return }
+        guard let url = URL(string: "\(Self.serverBaseURL)/api/ihya/check-hwid.php?hwid=\(hwid)") else { return }
         
         var request = URLRequest(url: url)
         request.timeoutInterval = 5.0
         if let (data, response) = try? await URLSession.shared.data(for: request),
            let httpRes = response as? HTTPURLResponse, httpRes.statusCode == 200,
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let registered = json["registered"] as? Bool, registered,
-           let restoredKey = json["key"] as? String, verifyKey(restoredKey) {
+           let registered = json["registered"] as? Bool, registered {
+            
+            let restoredKey = json["key"] as? String ?? ""
+            let durationTitle = json["durationTitle"] as? String
+            let expiresAt = json["expiresAt"] as? String
             
             await MainActor.run {
-                self.defaults.set(restoredKey, forKey: self.licenseKeyPrefKey)
-                self.setPersonalUnlockedState(key: restoredKey)
+                self.applyHwidProGrant(
+                    key: restoredKey.isEmpty ? "HWID-PRO-\(hwid.prefix(8))" : restoredKey,
+                    durationTitle: durationTitle,
+                    expiresAt: expiresAt
+                )
             }
         }
     }

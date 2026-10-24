@@ -300,7 +300,7 @@ public struct MainView: View {
                                 .foregroundColor(.white)
                                 .cornerRadius(4)
                             
-                            Text("Ömür Boyu VIP")
+                            Text(licenseManager.hwidGrantTitle ?? "Ömür Boyu VIP")
                                 .font(.system(size: 10, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.85))
                         }
@@ -1220,6 +1220,41 @@ public struct MainView: View {
                     Text("Cihaz Güvenliği & Çevrimdışı Parmak İzi")
                         .font(.system(size: 13, weight: .bold))
                         .foregroundColor(.white)
+                    
+                    HStack {
+                        Text("Donanım Kimliği (HWID):")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.6))
+                        Spacer()
+                        Text(HardwareFingerprint.machineId)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundColor(Color(hex: "38BDF8"))
+                        
+                        Button(action: {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(HardwareFingerprint.machineId, forType: .string)
+                            HapticManager.shared.triggerSuccess()
+                            licenseStatusMessage = "Donanım Kimliği (HWID) panoya kopyalandı."
+                        }) {
+                            Image(systemName: "doc.on.doc")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .buttonStyle(.plain)
+                        .help("HWID Kopyala")
+                    }
+                    
+                    if let grant = licenseManager.hwidGrantTitle {
+                        HStack {
+                            Text("Özel Lisans Statüsü:")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.6))
+                            Spacer()
+                            Text(grant)
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: "34D399"))
+                        }
+                    }
                     
                     HStack {
                         Text("Sistem Mimarisi:")

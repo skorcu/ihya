@@ -13,6 +13,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusItem()
         setupPopover()
         
+        // Cihaz telemetri ve canlı HWID lisans senkronizasyonu
+        TelemetryManager.shared.sendHeartbeat()
+        
         LegalNoticeWindow.shared.showIfNeeded { [weak self] in
             Task { @MainActor in
                 self?.openMainWindow()
