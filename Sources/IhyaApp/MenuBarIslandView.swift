@@ -33,7 +33,7 @@ public struct MenuBarIslandView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
                 
-                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.6")")
+                Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.0")")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
                 
