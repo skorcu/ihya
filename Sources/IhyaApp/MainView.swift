@@ -66,9 +66,9 @@ public struct MainView: View {
             
             // 2. Ana Uygulama Gövdesi (Sol Geniş Lüks Sidebar + Sağ Sahne)
             HStack(spacing: 0) {
-                // Sol Geniş Cam Kenar Çubuğu (~210px)
+                // Sol Geniş Cam Kenar Çubuğu (240px - Lüks ve Ferah Menü Hizalaması)
                 sidebarView
-                    .frame(width: 216)
+                    .frame(width: 240)
                 
                 // Sağ Ana Sahne Alanı
                 ZStack(alignment: .trailing) {
@@ -391,7 +391,7 @@ public struct MainView: View {
     }
     
     private func sidebarSection(title: String, tabs: [AppTab]) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title)
                 .font(.system(size: 9, weight: .heavy))
                 .foregroundColor(.white.opacity(0.4))
@@ -409,13 +409,15 @@ public struct MainView: View {
                         Image(systemName: tab.icon)
                             .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium))
                             .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.55))
-                            .frame(width: 18)
+                            .frame(width: 18, alignment: .center)
                         
                         Text(tab.rawValue)
                             .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
-                            .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.7))
+                            .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.75))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                         
-                        Spacer()
+                        Spacer(minLength: 4)
                         
                         if tab == .duplicateFinder && dupEngine.isScanning {
                             HStack(spacing: 4) {
@@ -432,8 +434,9 @@ public struct MainView: View {
                             .cornerRadius(6)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: 32)
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
                     .background(
                         selectedTab == tab ?
                         Color.white.opacity(0.12) :
