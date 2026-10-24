@@ -94,30 +94,18 @@ Canlı Unified RAM göstergesi, inaktif bellek boşaltma (Memory Purge), APFS ye
 
 ---
 
-## 🚀 Kurulum (DMG)
+## 🚀 1-Tıkla İndirme ve Kurulum (Apple Noter Onaylı DMG)
 
-1. **[Ihya.dmg İndir](https://caneser.com/downloads/Ihya.dmg)** bağlantısından en güncel Apple Noter onaylı sürümü indirin.
+1. **[Ihya.dmg İndir](https://caneser.com/downloads/Ihya.dmg)** bağlantısından en güncel resmi Apple Noter onaylı sürümü indirin.
 2. DMG dosyasını açıp **İhyâ**'yı **Uygulamalar (Applications)** klasörüne sürükleyin.
-3. Uygulamayı çalıştırın. macOS Sequoia / Sonoma Gatekeeper onayından sorunsuzca geçer.
-
----
-
-## 🛠️ Kaynak Koddan Derleme
-
-```bash
-# Repoyu klonlayın
-git clone https://github.com/skorcu/ihya.git
-cd ihya
-
-# Universal 2 (Apple Silicon + Intel) derleme ve paketleme
-./package_app.sh
-```
+3. Uygulamayı çalıştırın. macOS Sequoia / Sonoma Gatekeeper onayından pürüzsüzce geçer.
 
 ---
 
 ## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
 
 ### [v1.5.0] — 24 Ekim 2026 (Apple Noter Onaylı Güncel Sürüm)
+- **Canlı Video & Resim Kareleri Önizleme Motoru:** Çift Dosya Avcısı'nda video ve fotoğraflar için anında 36x36 Retina küçük resimler, play rozeti ve sıfır gecikmeli dahili QuickLook desteği entegre edildi.
 - **Granüler Tarayıcı & Web Gizlilik Kasası:** Safari, Chrome, Arc, Brave, Edge, Opera, Vivaldi, Firefox dahil 21+ tarayıcı desteği; IndexedDB, PWA ve V8 önbellek temizliği, güvenli şifre kalkanı ve onay modalı.
 - **Çift Dosya Avcısı (3 Aşamalı SHA-256):** Kısmi ön-hash ve tam SHA-256 doğrulamasıyla %100 kayıpsız çift dosya temizliği, canlı sayaç ve aday doğrulama oranı.
 - **Apple Noter Onayı (Stapled Ticket):** Apple Developer ID ile imzalanmış ve resmi Apple sunucularından noter güvenlik damgası almıştır. Gatekeeper uyarısı vermeden doğrudan açılır.
@@ -131,8 +119,8 @@ cd ihya
 
 ---
 
-## 📄 Lisans & Teşekkür
+## 📄 Lisans & Güvenlik
 
-Bu proje açık kaynak felsefesiyle sunulmaktadır.  
-Tüm hakları ve marka tasarımı **Sarkaç Adam** ekosistemine aittir.  
+İhyâ, **Sarkaç Adam** tarafından Mac ekosistemine özel olarak geliştirilmiş kapalı kaynaklı (özel mülkiyet / proprietary), resmi Apple Noter güvenlik onaylı bir sistem arınma yazılımıdır.  
+Tüm fikrî mülkiyet, kaynak kodları ve marka hakları **Sarkaç Adam** ekosistemine aittir.  
 Doğal kristal koleksiyonumuzu incelemek ve çalışma masanıza saf enerji katmak için [sarkacadam.com](https://sarkacadam.com) adresini ziyaret edebilirsiniz.
