@@ -14,6 +14,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
     case developerVault = "Geliştirici Kasası"
     case ghostDaemons = "Hayalet Servisler"
     case systemOptimize = "Sistem & Bellek"
+    case startupManager = "Başlangıç Yöneticisi"
     case settings = "Ayarlar & Lisans"
     
     public var id: String { rawValue }
@@ -31,6 +32,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
         case .ghostDaemons: return "bolt.shield.fill"
         case .appLipo: return "scissors"
         case .systemOptimize: return "memorychip"
+        case .startupManager: return "play.square.stack.fill"
         case .settings: return "gearshape.fill"
         }
     }
@@ -39,7 +41,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .smartClean: return "GENEL"
         case .spaceLens, .largeOldFiles, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo: return "UYGULAMA & ALAN"
-        case .systemOptimize, .developerVault, .ghostDaemons: return "PERFORMANS & KORUMA"
+        case .systemOptimize, .startupManager, .developerVault, .ghostDaemons: return "PERFORMANS & KORUMA"
         case .settings: return "SİSTEM"
         }
     }
@@ -101,7 +103,13 @@ public struct MainView: View {
                             case .appLipo:
                                 appLipoStage
                             case .systemOptimize:
-                                SystemOptimizationView()
+                                SystemOptimizationView(onNavigateToStartupManager: {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        selectedTab = .startupManager
+                                    }
+                                })
+                            case .startupManager:
+                                StartupManagerView()
                             case .settings:
                                 settingsStage
                             }
@@ -194,6 +202,8 @@ public struct MainView: View {
             return [Color(hex: "041E28"), Color(hex: "020F15"), Color(hex: "01070A")]
         case .systemOptimize:
             return [Color(hex: "04221E"), Color(hex: "021210"), Color(hex: "010908")]
+        case .startupManager:
+            return [Color(hex: "1F143B"), Color(hex: "0D081D"), Color(hex: "06030F")]
         case .settings:
             return [Color(hex: "111622"), Color(hex: "090C13"), Color(hex: "040609")]
         }
@@ -212,6 +222,7 @@ public struct MainView: View {
         case .appLipo: return Color(hex: "F43F5E")
         case .browserPrivacy: return Color(hex: "0EA5E9")
         case .systemOptimize: return Color(hex: "14B8A6")
+        case .startupManager: return Color(hex: "A855F7")
         case .settings: return Color(hex: "64748B")
         }
     }
@@ -229,6 +240,7 @@ public struct MainView: View {
         case .appLipo: return Color(hex: "BE123C")
         case .browserPrivacy: return Color(hex: "06B6D4")
         case .systemOptimize: return Color(hex: "0D9488")
+        case .startupManager: return Color(hex: "6366F1")
         case .settings: return Color(hex: "475569")
         }
     }
@@ -275,7 +287,7 @@ public struct MainView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.1") (Native)")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.6.3") (Native)")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -291,7 +303,7 @@ public struct MainView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     sidebarSection(title: "GENEL", tabs: [.smartClean])
                     sidebarSection(title: "UYGULAMA & ALAN", tabs: [.spaceLens, .largeOldFiles, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo])
-                    sidebarSection(title: "PERFORMANS & KORUMA", tabs: [.systemOptimize, .developerVault, .ghostDaemons])
+                    sidebarSection(title: "PERFORMANS & KORUMA", tabs: [.systemOptimize, .startupManager, .developerVault, .ghostDaemons])
                     sidebarSection(title: "SİSTEM", tabs: [.settings])
                 }
                 .padding(.horizontal, 10)
@@ -531,6 +543,7 @@ public struct MainView: View {
         case .developerVault: return "7"
         case .ghostDaemons: return "8"
         case .systemOptimize: return "9"
+        case .startupManager: return "0"
         case .settings: return ","
         }
     }

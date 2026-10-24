@@ -8,8 +8,17 @@ public struct SystemOptimizationView: View {
     @State private var timer = Timer.publish(every: 2.0, on: .main, in: .common).autoconnect()
     @State private var appToQuit: AppMemoryUsage? = nil
     @State private var showQuitConfirm: Bool = false
+    @State private var skippedAppPids: Set<pid_t> = []
+    public var onNavigateToStartupManager: (() -> Void)? = nil
     
-    public init() {}
+    private var candidateAdvisorApp: AppMemoryUsage? {
+        let unskipped = engine.topMemoryHogs.filter { !skippedAppPids.contains($0.id) }
+        return unskipped.first
+    }
+    
+    public init(onNavigateToStartupManager: (() -> Void)? = nil) {
+        self.onNavigateToStartupManager = onNavigateToStartupManager
+    }
     
     public var body: some View {
         VStack(spacing: 0) {
@@ -34,9 +43,31 @@ public struct SystemOptimizationView: View {
                             .frame(maxWidth: .infinity)
                     }
                     
-                    // Akıllı Bellek Tavsiyesi Banner'ı (Kullanıcı Talebi: Yüksek RAM tüketenleri tespit edip kapatma önerisi)
-                    if let topApp = engine.topMemoryHogs.first, engine.memoryStats.usagePercentage >= 60.0 {
+                    // Akıllı Bellek Tavsiyesi Banner'ı (Kullanıcı Talebi: Geçilebilir & Döngülü)
+                    if let topApp = candidateAdvisorApp, engine.memoryStats.usagePercentage >= 50.0 {
                         smartAdvisorBanner(topApp: topApp)
+                    } else if !skippedAppPids.isEmpty && engine.memoryStats.usagePercentage >= 50.0 {
+                        HStack(spacing: 8) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(Color(hex: "10B981"))
+                                .font(.system(size: 13))
+                            Text("Önerilen tüm uygulamalar incelendi.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.7))
+                            Spacer()
+                            Button("Önerileri Başa Sar ↺") {
+                                withAnimation {
+                                    skippedAppPids.removeAll()
+                                }
+                            }
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "F59E0B"))
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(8)
                     }
                     
                     // Alt Bölüm: 6 Derin Sistem Arındırma Görevi (2 Sütunlu Grid)
@@ -86,42 +117,67 @@ public struct SystemOptimizationView: View {
             
             Spacer()
             
-            // Üst Sağda Daima Görünür Arındır Butonu (Asla Altta Gizlenmez)
-            Button(action: {
-                Task {
-                    await engine.runAllOptimizations()
-                    SoundManager.shared.playSuccessChime()
-                    HapticManager.shared.generateSuccessFeedback()
-                }
-            }) {
-                HStack(spacing: 7) {
-                    if engine.isOptimizing {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                            .frame(width: 14, height: 14)
-                        Text("Arındırılıyor...")
-                    } else {
-                        Image(systemName: "bolt.fill")
-                            .font(.system(size: 12, weight: .bold))
-                        Text("Sistem & Belleği Arındır")
+            HStack(spacing: 8) {
+                // Başlangıç Yöneticisi Hızlı Geçiş
+                if let onOpenStartup = onNavigateToStartupManager {
+                    Button(action: onOpenStartup) {
+                        HStack(spacing: 5) {
+                            Image(systemName: "play.rectangle.fill")
+                                .font(.system(size: 11))
+                            Text("Başlangıç Yöneticisi")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 7)
+                        .background(Color(hex: "8B5CF6").opacity(0.18))
+                        .foregroundColor(Color(hex: "C4B5FD"))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(hex: "8B5CF6").opacity(0.4), lineWidth: 1)
+                        )
+                        .cornerRadius(8)
                     }
+                    .buttonStyle(.plain)
+                    .help("Mac açılışında başlayan uygulamaları ve servisleri yönet")
                 }
-                .font(.system(size: 12, weight: .semibold))
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "14B8A6"), Color(hex: "0D9488")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                
+                // Üst Sağda Daima Görünür Arındır Butonu (Asla Altta Gizlenmez)
+                Button(action: {
+                    Task {
+                        await engine.runAllOptimizations()
+                        SoundManager.shared.playSuccessChime()
+                        HapticManager.shared.generateSuccessFeedback()
+                    }
+                }) {
+                    HStack(spacing: 7) {
+                        if engine.isOptimizing {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .frame(width: 14, height: 14)
+                            Text("Arındırılıyor...")
+                        } else {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 12, weight: .bold))
+                            Text("Sistem & Belleği Arındır")
+                        }
+                    }
+                    .font(.system(size: 12, weight: .semibold))
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "14B8A6"), Color(hex: "0D9488")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .shadow(color: Color(hex: "14B8A6").opacity(0.35), radius: 6, y: 2)
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .shadow(color: Color(hex: "14B8A6").opacity(0.35), radius: 6, y: 2)
+                }
+                .buttonStyle(.plain)
+                .disabled(engine.isOptimizing)
             }
-            .buttonStyle(.plain)
-            .disabled(engine.isOptimizing)
         }
     }
     
@@ -358,32 +414,60 @@ public struct SystemOptimizationView: View {
             
             Spacer()
             
-            // 3. Tek Tıkla Kapatma Eylemi
-            Button(action: {
-                appToQuit = topApp
-                showQuitConfirm = true
-            }) {
-                HStack(spacing: 6) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 12))
-                    Text("\(topApp.name)'ı Kapat")
-                        .font(.system(size: 12, weight: .bold))
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "EF4444"), Color(hex: "DC2626")],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            // 3. Eylemler: Atla (Geç) ve Tek Tıkla Kapatma
+            HStack(spacing: 8) {
+                // Atla / Sonraki Butonu (Kullanıcı Talebi: Kapatmak istemediğimi geçeyim)
+                Button(action: {
+                    _ = withAnimation(.easeInOut(duration: 0.2)) {
+                        skippedAppPids.insert(topApp.id)
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Text("Geç")
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .font(.system(size: 11, weight: .semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.08))
+                    .foregroundColor(.white.opacity(0.85))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
                     )
-                )
-                .foregroundColor(.white)
-                .cornerRadius(8)
-                .shadow(color: Color(hex: "EF4444").opacity(0.4), radius: 5, y: 1)
+                }
+                .buttonStyle(.plain)
+                .help("Bu uygulamayı kapatmak istemiyorum, sonraki uygulamayı öner")
+                
+                // Tek Tıkla Kapatma Eylemi
+                Button(action: {
+                    appToQuit = topApp
+                    showQuitConfirm = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                        Text("\(topApp.name)'ı Kapat")
+                            .font(.system(size: 12, weight: .bold))
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "EF4444"), Color(hex: "DC2626")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .shadow(color: Color(hex: "EF4444").opacity(0.4), radius: 5, y: 1)
+                }
+                .buttonStyle(.plain)
+                .help("\(topApp.name) uygulamasını sonlandırarak \(topApp.formattedMemory) belleği serbest bırak")
             }
-            .buttonStyle(.plain)
-            .help("\(topApp.name) uygulamasını sonlandırarak \(topApp.formattedMemory) belleği serbest bırak")
         }
         .padding(14)
         .background(
