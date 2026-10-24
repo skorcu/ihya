@@ -5,6 +5,7 @@ import IhyaCore
 public enum AppTab: String, CaseIterable, Identifiable {
     case smartClean = "Akıllı Arınma"
     case spaceLens = "Hacim Röntgeni"
+    case largeOldFiles = "Büyük & Eski Dosyalar"
     case uninstaller = "Derin Kaldırıcı"
     case appUpdater = "Yazılım Güncelleyici"
     case duplicateFinder = "Çift Dosya Avcısı"
@@ -21,6 +22,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
         switch self {
         case .smartClean: return "sparkles"
         case .spaceLens: return "circle.hexagongrid.fill"
+        case .largeOldFiles: return "archivebox.fill"
         case .uninstaller: return "xmark.bin.fill"
         case .appUpdater: return "arrow.triangle.2.circlepath.circle.fill"
         case .duplicateFinder: return "doc.on.doc.fill"
@@ -36,7 +38,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
     public var sectionName: String {
         switch self {
         case .smartClean: return "GENEL"
-        case .spaceLens, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo: return "UYGULAMA & ALAN"
+        case .spaceLens, .largeOldFiles, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo: return "UYGULAMA & ALAN"
         case .systemOptimize, .developerVault, .ghostDaemons: return "PERFORMANS & KORUMA"
         case .settings: return "SİSTEM"
         }
@@ -81,6 +83,8 @@ public struct MainView: View {
                                 smartCleanStage
                             case .spaceLens:
                                 SpaceLensView()
+                            case .largeOldFiles:
+                                LargeOldFilesView()
                             case .uninstaller:
                                 AppUninstallerView()
                             case .appUpdater:
@@ -165,6 +169,8 @@ public struct MainView: View {
             return [Color(hex: "1F0C3B"), Color(hex: "0D051B"), Color(hex: "07030F")]
         case .spaceLens:
             return [Color(hex: "041C24"), Color(hex: "020E12"), Color(hex: "010709")]
+        case .largeOldFiles:
+            return [Color(hex: "2B1804"), Color(hex: "140B02"), Color(hex: "080401")]
         case .uninstaller:
             return [Color(hex: "2D080A"), Color(hex: "120304"), Color(hex: "080102")]
         case .appUpdater:
@@ -190,6 +196,7 @@ public struct MainView: View {
         switch selectedTab {
         case .smartClean: return Color(hex: "9333EA")
         case .spaceLens: return Color(hex: "06B6D4")
+        case .largeOldFiles: return Color(hex: "F59E0B")
         case .uninstaller: return Color(hex: "EF4444")
         case .appUpdater: return Color(hex: "38BDF8")
         case .developerVault: return Color(hex: "F59E0B")
@@ -206,6 +213,7 @@ public struct MainView: View {
         switch selectedTab {
         case .smartClean: return Color(hex: "EC4899")
         case .spaceLens: return Color(hex: "0891B2")
+        case .largeOldFiles: return Color(hex: "D97706")
         case .uninstaller: return Color(hex: "B91C1C")
         case .appUpdater: return Color(hex: "2563EB")
         case .developerVault: return Color(hex: "D97706")
@@ -275,7 +283,7 @@ public struct MainView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 18) {
                     sidebarSection(title: "GENEL", tabs: [.smartClean])
-                    sidebarSection(title: "UYGULAMA & ALAN", tabs: [.spaceLens, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo])
+                    sidebarSection(title: "UYGULAMA & ALAN", tabs: [.spaceLens, .largeOldFiles, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo])
                     sidebarSection(title: "PERFORMANS & KORUMA", tabs: [.systemOptimize, .developerVault, .ghostDaemons])
                     sidebarSection(title: "SİSTEM", tabs: [.settings])
                 }
@@ -448,6 +456,7 @@ public struct MainView: View {
         switch tab {
         case .smartClean: return "1"
         case .spaceLens: return "2"
+        case .largeOldFiles: return "b"
         case .uninstaller: return "3"
         case .appUpdater: return "u"
         case .duplicateFinder: return "4"

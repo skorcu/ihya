@@ -127,12 +127,32 @@ public final class DuplicateFinderEngine: ObservableObject {
             ScanTargetItem(name: "Tüm Ev Dizini (~)", path: home, icon: "house.fill", isSelected: false)
         ]
         
-        // Harici diskleri (/Volumes/*) dinamik tespit et
+        // Harici diskleri (/Volumes/*) dinamik ve akıllı tespit et
         let fm = FileManager.default
+        let excludedVolumeKeywords: [String] = [
+            "recovery", "preboot", "vm", "update", "time machine",
+            "timemachine", "localsnapshots", "backup", ".timemachine"
+        ]
+        
         if let volContents = try? fm.contentsOfDirectory(atPath: "/Volumes") {
             for volName in volContents {
+                // Gizli veya ana sistem diskini atla
                 if volName.hasPrefix(".") || volName == "Macintosh HD" { continue }
+                
+                // Sistem, Recovery ve Time Machine yedek disklerini filtrele
+                let lowerName = volName.lowercased()
+                if excludedVolumeKeywords.contains(where: { lowerName.contains($0) }) {
+                    continue
+                }
+                
                 let volPath = "/Volumes/\(volName)"
+                
+                // Salt okunur diskleri atla (Time Machine vs.)
+                let volURL = URL(fileURLWithPath: volPath)
+                if let vals = try? volURL.resourceValues(forKeys: [.volumeIsReadOnlyKey]), vals.volumeIsReadOnly == true {
+                    continue
+                }
+                
                 targets.append(ScanTargetItem(
                     name: "💽 \(volName)",
                     path: volPath,

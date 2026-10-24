@@ -79,9 +79,9 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.3</string>
+    <string>1.4.0</string>
     <key>CFBundleVersion</key>
-    <string>1.3.3</string>
+    <string>1.4.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -90,6 +90,14 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <false/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>İhyâ, İndirilenler klasörünüzdeki büyük ve çift dosyaları tespit edip disk alanı açabilmek için erişim sağlar.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>İhyâ, Belgeler klasörünüzdeki büyük ve eski dosyaları tarayıp yer açabilmeniz için erişim sağlar.</string>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>İhyâ, Masaüstündeki büyük ve eski dosyaları tarayabilmek için erişim sağlar.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>İhyâ, harici disklerdeki çift dosyaları taramak ve büyük dosyaları güvenle harici diske arşivleyebilmek için erişim sağlar.</string>
 </dict>
 </plist>
 EOF
@@ -210,7 +218,7 @@ if [ -d "$WEB_OUT_DIR" ]; then
 fi
 
 echo "============================================="
-echo "  İHYÂ v1.3.3 Universal 2 Başarıyla Üretildi!"
+echo "  İHYÂ v1.4.0 Universal 2 Başarıyla Üretildi!"
 echo "  DMG Dosyası: $DMG_OUTPUT"
 echo "  Boyut: $(du -h "$DMG_OUTPUT" | cut -f1)"
 echo "============================================="
