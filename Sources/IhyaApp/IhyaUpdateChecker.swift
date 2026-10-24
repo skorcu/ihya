@@ -18,7 +18,7 @@ public final class IhyaUpdateChecker: ObservableObject {
     private var periodicTimer: Timer?
     
     public let currentVersion: String = {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.4"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.5"
     }()
     
     // Can Eser Central Update Feed (no rate limits)

@@ -24,7 +24,7 @@ public final class TelemetryManager: @unchecked Sendable {
             let arch = "Universal"
             #endif
             
-            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.4"
+            let appVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.5"
             let lic = LicenseManager.shared
             let hasPersonal = lic.hasPersonalLicense
             let isPro = lic.isProUnlocked
