@@ -123,17 +123,16 @@ else
     codesign --force --deep --sign - --requirements '=designated => identifier "com.caneser.ihya"' --entitlements "$DIR/Entitlements.plist" --identifier "com.caneser.ihya" "$APP_DIR"
 fi
 
-# 5. Yerel Kurulum
+# 5. Yerel Kurulum (TCC İzinlerini ve Bundle Kimliğini Koruyan Atomik Güncelleme)
 echo "Yerel sisteme kuruluyor: /Applications/İhyâ.app"
 killall IhyaApp 2>/dev/null || true
 sleep 0.3
-rm -rf "/Applications/İhyâ.app"
-cp -R "$APP_DIR" "/Applications/İhyâ.app"
+ditto "$APP_DIR" "/Applications/İhyâ.app"
+touch "/Applications/İhyâ.app"
 
 # Spotlight ve LaunchServices'ın dist/ klasörünü indekslemesini engelle
 touch "$DIR/dist/.metadata_never_index"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP_DIR" 2>/dev/null || true
-/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/İhyâ.app" 2>/dev/null || true
 
 mkdir -p "$HOME/.local/bin"
 cp "$RELEASE_DIR/ihya" "$HOME/.local/bin/ihya"
