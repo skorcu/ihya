@@ -9,7 +9,7 @@
   [![macOS](https://img.shields.io/badge/macOS-14.0%2B%20(Sonoma%20%26%20Sequoia)-black.svg?style=for-the-badge&logo=apple)](https://caneser.com/ihya)
   [![Apple Notarized](https://img.shields.io/badge/Apple%20Security-Resmi%20Noter%20Onaylı%20✓-10B981.svg?style=for-the-badge&logo=apple)](https://caneser.com/ihya)
   [![Architecture](https://img.shields.io/badge/Mimari-Universal%202%20(arm64%20%2B%20x86__64)-0284C7.svg?style=for-the-badge)](https://caneser.com/ihya)
-  [![License](https://img.shields.io/badge/Lisans-Açık%20Kaynak%20•%20Hediye-8B5CF6.svg?style=for-the-badge)](https://caneser.com/ihya)
+  [![License](https://img.shields.io/badge/Lisans-Sarkaç%20Adam%20Özel%20•%20Freeware%20Hediye-8B5CF6.svg?style=for-the-badge)](https://caneser.com/ihya)
 </div>
 
 ---
@@ -43,9 +43,10 @@ Geleneksel Mac temizleyicileri genellikle yüzlerce megabaytlık webview katmanl
 | **Uygulama İkili Boyutu** | **2.8 MB** (Saf Swift Makine Kodu) | **180 MB – 260 MB** (Ağır Frameworkler) |
 | **Arka Planda RAM Tüketimi** | **0.0 MB** (Beklemede Servis Çalıştırmaz) | **180 MB – 350 MB** (24/7 Arka Plan Daemons) |
 | **Arka Planda Pil & CPU Yükü** | **%0.0 CPU** (Tamamen Durur) | **%2.5 – %8.0 CPU** (Sürekli Disk Taraması) |
-| **1 Milyon Dosya Tarama Hızı** | **1.8 Saniye** (POSIX C-Level mmap) | **14.2 – 22.0 Saniye** |
+| **1 Milyon Dosya Tarama Hızı** | **1.8 Saniye (Windows Everything'den Çok Daha Hızlı APFS C-mmap)** | **14.2 – 22.0 Saniye** |
+| **İndeksleme İhtiyacı** | **Sıfır İndeksleme (Anında Canlı Donanım Taraması)** | Günler Süren Arka Plan Veritabanı Şişmesi |
 | **Apple Noter Güvenlik Onayı** | **Resmi Apple Notarized (Stapled)** | Değişken |
-| **Çift Dosya Analiz Motoru** | **3 Aşamalı Kısmi Ön-Hash + SHA-256** | Tek Düzey Yüzeysel Hash |
+| **Çift Dosya Analiz Motoru** | **3 Aşamalı Kısmi Ön-Hash + SHA-256 (Canlı Video & Resim Kareleri)** | Tek Düzey Yüzeysel Hash |
 | **Tarayıcı & Gizlilik Derinliği** | **21+ Tarayıcı (IndexedDB/PWA/V8/Şifre)** | Yalnızca Yüzeysel Çerez/Önbellek |
 | **Harici Diske Arşivleme Köprüsü**| **Dahili (1-Tıkla Harici Diske Taşıma)** | Yok |
 | **Fiyatlandırma & Lisans** | **%100 Ücretsiz Hediye (Ömür Boyu)** | Yıllık $39 – $89 Zorunlu Abonelik |
