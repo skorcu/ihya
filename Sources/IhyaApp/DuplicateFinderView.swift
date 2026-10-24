@@ -794,20 +794,26 @@ public struct DuplicateFinderView: View {
             
             // 5. Canlı Sayaçlar (Micro-Stats Pills)
             HStack(spacing: 12) {
+                let scannedCount = dupEngine.scanProgress?.totalScannedFiles ?? 0
+                let totalCands = dupEngine.scanProgress?.totalCandidates ?? 0
+                let processedCands = dupEngine.scanProgress?.processedCandidates ?? 0
+                let groupsCount = dupEngine.scanProgress?.foundDuplicateGroups ?? 0
+                let isSizeStep = dupEngine.scanProgress?.step == .sizeGrouping
+                
                 scanStatPill(
                     icon: "doc.text.magnifyingglass",
-                    label: "İncelenen Dosya",
-                    value: "\(dupEngine.scanProgress?.processedFiles ?? 0)"
+                    label: "Taranan Dosya",
+                    value: formatStatNumber(scannedCount)
                 )
                 scanStatPill(
                     icon: "bolt.badge.clock.fill",
-                    label: "Aday Eşleşme",
-                    value: "\(dupEngine.scanProgress?.totalCandidates ?? 0)"
+                    label: isSizeStep ? "Aday Eşleşme" : "Doğrulanan Aday",
+                    value: isSizeStep ? formatStatNumber(totalCands) : "\(formatStatNumber(processedCands)) / \(formatStatNumber(totalCands))"
                 )
                 scanStatPill(
                     icon: "doc.on.doc.fill",
                     label: "Bulunan İkiz Grup",
-                    value: "\(dupEngine.scanProgress?.foundDuplicateGroups ?? 0)"
+                    value: formatStatNumber(groupsCount)
                 )
             }
             
@@ -895,6 +901,13 @@ public struct DuplicateFinderView: View {
             RoundedRectangle(cornerRadius: 10)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
         )
+    }
+    
+    private func formatStatNumber(_ num: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "."
+        return f.string(from: NSNumber(value: num)) ?? "\(num)"
     }
     
     private var emptyResultView: some View {

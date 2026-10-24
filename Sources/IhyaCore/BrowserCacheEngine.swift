@@ -9,18 +9,21 @@ public enum BrowserDataType: String, CaseIterable, Sendable {
     case offlineStorage = "offline_storage"
     case cookies = "cookies"
     case history = "history"
+    case autofill = "autofill"
+    case passwords = "passwords"
     case downloads = "downloads"
     case crashLogs = "crash_logs"
     
     public var displayName: String {
         switch self {
-        case self: return "Web ve Medya Önbelleği"
         case .webCache: return "Web ve Medya Önbelleği"
-        case .codeCache: return "V8 Derlenmiş Kod Deposu"
+        case .codeCache: return "V8 / JIT Derlenmiş Kod Deposu"
         case .favicons: return "Site Simgeleri (Favicons)"
-        case .offlineStorage: return "Çevrimdışı Web ve Servis Deposu"
+        case .offlineStorage: return "Çevrimdışı Web & Servis Deposu"
         case .cookies: return "Oturum Çerezleri"
         case .history: return "Tarama ve Arama Geçmişi"
+        case .autofill: return "Otomatik Doldurma & Form Verileri"
+        case .passwords: return "Kayıtlı Parolalar & Şifreler"
         case .downloads: return "İndirme Geçmişi Kayıtları"
         case .crashLogs: return "Hata ve Teşhis Günlükleri"
         }
@@ -34,37 +37,48 @@ public enum BrowserDataType: String, CaseIterable, Sendable {
         case .offlineStorage: return "internaldrive"
         case .cookies: return "lock.badge.clock"
         case .history: return "clock.arrow.circlepath"
+        case .autofill: return "text.cursor"
+        case .passwords: return "key.fill"
         case .downloads: return "arrow.down.circle"
         case .crashLogs: return "exclamationmark.triangle"
         }
     }
     
-    /// Varsayılan olarak Akıllı Arınma'da seçili gelsin mi?
+    /// Varsayılan olarak Akıllı Arınma'da veya Tarayıcı listesinde seçili gelsin mi?
     public var defaultSelected: Bool {
         switch self {
         case .webCache, .codeCache, .favicons, .offlineStorage, .crashLogs:
             return true
-        case .cookies, .history, .downloads:
-            return false // Parola/oturum kaybı olmaması için varsayılan KAPALI
+        case .cookies, .history, .autofill, .passwords, .downloads:
+            return false // Parola, oturum veya şahsi veri kaybı olmaması için varsayılan olarak KESİNLİKLE KAPALI
         }
     }
     
     /// Kullanıcı seçerse dikkat uyarısı gösterilecek mi?
     public var isCaution: Bool {
         switch self {
-        case .cookies, .history:
+        case .passwords, .cookies, .history, .autofill:
             return true
         default:
             return false
         }
     }
     
+    /// Kritik güvenlik kategorisi mi (Parola)?
+    public var isCritical: Bool {
+        self == .passwords
+    }
+    
     public var warningNote: String? {
         switch self {
+        case .passwords:
+            return "Kayıtlı web giriş şifreleriniz kalıcı silinir!"
         case .cookies:
             return "Sitelerdeki açık oturumlarınız sonlanır."
         case .history:
             return "Ziyaret edilen URL ve arama geçmişi silinir."
+        case .autofill:
+            return "Kayıtlı form ve adres doldurma verileri silinir."
         default:
             return nil
         }
@@ -152,16 +166,20 @@ public final class BrowserCacheEngine: Sendable {
     
     public init() {}
     
-    /// Bilinen tüm Mac tarayıcı tanımları
+    private enum BrowserKind {
+        case safari(containerName: String)
+        case chromium(dataSubPath: String, cacheSubPath: String)
+        case gecko(profileSubPath: String, cacheSubPath: String)
+    }
+    
     private struct BrowserSpec {
         let name: String
         let bundleId: String
         let appPaths: [String]
-        let cacheRules: [(type: BrowserDataType, subPath: String, name: String, desc: String)]
+        let kind: BrowserKind
     }
     
     private var browserSpecs: [BrowserSpec] {
-        let home = NSHomeDirectory()
         return [
             // 1. Apple Safari
             BrowserSpec(
@@ -172,50 +190,7 @@ public final class BrowserCacheEngine: Sendable {
                     "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app",
                     "/System/Applications/Safari.app"
                 ],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Containers/com.apple.Safari/Data/Library/Caches"),
-                        "Safari WebKit & Sayfa Önbelleği",
-                        "Ziyaret edilen web sayfalarından indirilen medya, stil ve komut dosyaları."
-                    ),
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/com.apple.Safari"),
-                        "Safari HTTP Ağ Önbelleği",
-                        "Safari ağ yanıtları ve geçici indirme ara belleği."
-                    ),
-                    (
-                        .favicons,
-                        (home as NSString).appendingPathComponent("Library/Safari/Favicon Cache"),
-                        "Safari Site Simgeleri (Favicons)",
-                        "Sitelerin yerel simge ve dokunma ikonları deposu."
-                    ),
-                    (
-                        .favicons,
-                        (home as NSString).appendingPathComponent("Library/Safari/Touch Icons Cache"),
-                        "Safari Dokunmatik Simgeler",
-                        "Hızlı arama ve yer imi dokunma simgeleri."
-                    ),
-                    (
-                        .offlineStorage,
-                        (home as NSString).appendingPathComponent("Library/WebKit/com.apple.Safari"),
-                        "WebKit WebProcess & HTML5 Deposu",
-                        "WebKit motorunun geçici işlem ve render verileri."
-                    ),
-                    (
-                        .cookies,
-                        (home as NSString).appendingPathComponent("Library/Containers/com.apple.Safari/Data/Library/Cookies"),
-                        "Safari Oturum Çerezleri",
-                        "Web sitelerinin bıraktığı oturum ve kimlik çerezleri."
-                    ),
-                    (
-                        .history,
-                        (home as NSString).appendingPathComponent("Library/Safari/History.db"),
-                        "Safari Tarama Geçmişi",
-                        "Ziyaret edilen web sayfaları URL ve başlık geçmişi."
-                    )
-                ]
+                kind: .safari(containerName: "com.apple.Safari")
             ),
             
             // 2. Safari Technology Preview
@@ -223,65 +198,18 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Safari Technology Preview",
                 bundleId: "com.apple.SafariTechnologyPreview",
                 appPaths: ["/Applications/Safari Technology Preview.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Containers/com.apple.SafariTechnologyPreview/Data/Library/Caches"),
-                        "Safari TP WebKit Önbelleği",
-                        "Teknoloji önizleme sürümü geçici render deposu."
-                    )
-                ]
+                kind: .safari(containerName: "com.apple.SafariTechnologyPreview")
             ),
             
             // 3. Google Chrome
             BrowserSpec(
                 name: "Google Chrome",
                 bundleId: "com.google.Chrome",
-                appPaths: ["/Applications/Google Chrome.app", (home as NSString).appendingPathComponent("Applications/Google Chrome.app")],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Google/Chrome"),
-                        "Chrome Web & Medya Önbelleği",
-                        "HTTP/HTTPS önbelleğe alınmış resimler, scriptler ve sayfa varlıkları."
-                    ),
-                    (
-                        .codeCache,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/Code Cache"),
-                        "Chrome V8 Derlenmiş Kod Deposu",
-                        "JavaScript kodlarının önceden derlenmiş bayt kodları (V8)."
-                    ),
-                    (
-                        .offlineStorage,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/GPUCache"),
-                        "Chrome GPU & WebGL Gölgelendiricileri",
-                        "Donanımsal grafik hızlandırma ara belleği."
-                    ),
-                    (
-                        .offlineStorage,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/Service Worker/CacheStorage"),
-                        "Chrome Service Worker Deposu",
-                        "Çevrimdışı web uygulaması ve PWA önbellekleri."
-                    ),
-                    (
-                        .favicons,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/Favicons"),
-                        "Chrome Favicon Deposu",
-                        "Site küçük resimleri ve ikon veritabanı."
-                    ),
-                    (
-                        .cookies,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/Network/Cookies"),
-                        "Chrome Çerezleri & Oturumlar",
-                        "Sitelerde aktif oturum açma çerezleri."
-                    ),
-                    (
-                        .history,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Google/Chrome/Default/History"),
-                        "Chrome Tarama Geçmişi",
-                        "Ziyaret edilen sayfalar ve arama geçmişi."
-                    )
-                ]
+                appPaths: ["/Applications/Google Chrome.app"],
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Google/Chrome",
+                    cacheSubPath: "Library/Caches/Google/Chrome"
+                )
             ),
             
             // 4. Google Chrome Canary
@@ -289,14 +217,10 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Google Chrome Canary",
                 bundleId: "com.google.Chrome.canary",
                 appPaths: ["/Applications/Google Chrome Canary.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Google/Chrome Canary"),
-                        "Chrome Canary Web Önbelleği",
-                        "Canary sürümü web ve render ara belleği."
-                    )
-                ]
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Google/Chrome Canary",
+                    cacheSubPath: "Library/Caches/Google/Chrome Canary"
+                )
             ),
             
             // 5. Firefox Developer Edition
@@ -304,35 +228,21 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Firefox Developer Edition",
                 bundleId: "org.mozilla.firefoxdeveloperedition",
                 appPaths: ["/Applications/Firefox Developer Edition.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Firefox/Profiles"),
-                        "Firefox Dev Ağ Önbelleği",
-                        "Geliştirici sürümü HTTP/HTTPS sayfa ve medya önbelleği."
-                    ),
-                    (
-                        .offlineStorage,
-                        (home as NSString).appendingPathComponent("Library/Caches/Mozilla/updates"),
-                        "Mozilla Güncelleme Geçici Dosyaları",
-                        "Geçici güncelleme paketleri ve günlükler."
-                    )
-                ]
+                kind: .gecko(
+                    profileSubPath: "Library/Application Support/Firefox/Profiles",
+                    cacheSubPath: "Library/Caches/Firefox/Profiles"
+                )
             ),
             
             // 6. Mozilla Firefox
             BrowserSpec(
                 name: "Mozilla Firefox",
                 bundleId: "org.mozilla.firefox",
-                appPaths: ["/Applications/Firefox.app", (home as NSString).appendingPathComponent("Applications/Firefox.app")],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Firefox/Profiles"),
-                        "Firefox Web & Sayfa Önbelleği",
-                        "HTTP/HTTPS ağ ve medya önbelleği."
-                    )
-                ]
+                appPaths: ["/Applications/Firefox.app"],
+                kind: .gecko(
+                    profileSubPath: "Library/Application Support/Firefox/Profiles",
+                    cacheSubPath: "Library/Caches/Firefox/Profiles"
+                )
             ),
             
             // 7. Firefox Nightly
@@ -340,101 +250,43 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Firefox Nightly",
                 bundleId: "org.mozilla.nightly",
                 appPaths: ["/Applications/Firefox Nightly.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Firefox/Profiles"),
-                        "Firefox Nightly Web Önbelleği",
-                        "Gecelik derleme ağ önbelleği."
-                    )
-                ]
+                kind: .gecko(
+                    profileSubPath: "Library/Application Support/Firefox/Profiles",
+                    cacheSubPath: "Library/Caches/Firefox/Profiles"
+                )
             ),
             
             // 8. Brave Browser
             BrowserSpec(
                 name: "Brave Browser",
                 bundleId: "com.brave.Browser",
-                appPaths: ["/Applications/Brave Browser.app", (home as NSString).appendingPathComponent("Applications/Brave Browser.app")],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/BraveSoftware/Brave-Browser"),
-                        "Brave Web Önbelleği",
-                        "Brave HTTP/HTTPS medya ve ağ paketleri."
-                    ),
-                    (
-                        .codeCache,
-                        (home as NSString).appendingPathComponent("Library/Application Support/BraveSoftware/Brave-Browser/Default/Code Cache"),
-                        "Brave V8 Kod Deposu",
-                        "Önceden derlenmiş JavaScript kodları."
-                    ),
-                    (
-                        .offlineStorage,
-                        (home as NSString).appendingPathComponent("Library/Application Support/BraveSoftware/Brave-Browser/Default/GPUCache"),
-                        "Brave GPU ve Render Önbelleği",
-                        "Grafik hızlandırma verileri."
-                    ),
-                    (
-                        .history,
-                        (home as NSString).appendingPathComponent("Library/Application Support/BraveSoftware/Brave-Browser/Default/History"),
-                        "Brave Tarama Geçmişi",
-                        "Ziyaret geçmişi veritabanı."
-                    )
-                ]
+                appPaths: ["/Applications/Brave Browser.app"],
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/BraveSoftware/Brave-Browser",
+                    cacheSubPath: "Library/Caches/BraveSoftware/Brave-Browser"
+                )
             ),
             
             // 9. Arc Browser
             BrowserSpec(
                 name: "Arc",
                 bundleId: "company.thebrowser.Browser",
-                appPaths: ["/Applications/Arc.app", (home as NSString).appendingPathComponent("Applications/Arc.app")],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/company.thebrowser.Browser"),
-                        "Arc Web & Medya Önbelleği",
-                        "Arc HTTP ve sayfa önbelleği."
-                    ),
-                    (
-                        .codeCache,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Arc/User Data/Default/Code Cache"),
-                        "Arc V8 Kod Deposu",
-                        "JavaScript bayt kodları."
-                    ),
-                    (
-                        .history,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Arc/User Data/Default/History"),
-                        "Arc Tarama Geçmişi",
-                        "Sayfa ziyaret geçmişi."
-                    )
-                ]
+                appPaths: ["/Applications/Arc.app"],
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Arc/User Data",
+                    cacheSubPath: "Library/Caches/company.thebrowser.Browser"
+                )
             ),
             
             // 10. Microsoft Edge
             BrowserSpec(
                 name: "Microsoft Edge",
                 bundleId: "com.microsoft.edgemac",
-                appPaths: ["/Applications/Microsoft Edge.app", (home as NSString).appendingPathComponent("Applications/Microsoft Edge.app")],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Microsoft Edge"),
-                        "Edge Web Önbelleği",
-                        "Edge ağ ve resim önbelleği."
-                    ),
-                    (
-                        .codeCache,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Microsoft Edge/Default/Code Cache"),
-                        "Edge V8 Kod Deposu",
-                        "Derlenmiş JavaScript kodları."
-                    ),
-                    (
-                        .history,
-                        (home as NSString).appendingPathComponent("Library/Application Support/Microsoft Edge/Default/History"),
-                        "Edge Tarama Geçmişi",
-                        "Edge ziyaret geçmişi."
-                    )
-                ]
+                appPaths: ["/Applications/Microsoft Edge.app"],
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Microsoft Edge",
+                    cacheSubPath: "Library/Caches/Microsoft Edge"
+                )
             ),
             
             // 11. Opera
@@ -442,14 +294,10 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Opera",
                 bundleId: "com.operasoftware.Opera",
                 appPaths: ["/Applications/Opera.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/com.operasoftware.Opera"),
-                        "Opera Web Önbelleği",
-                        "Opera web ve render deposu."
-                    )
-                ]
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/com.operasoftware.Opera",
+                    cacheSubPath: "Library/Caches/com.operasoftware.Opera"
+                )
             ),
             
             // 12. Opera GX
@@ -457,14 +305,10 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Opera GX",
                 bundleId: "com.operasoftware.OperaGX",
                 appPaths: ["/Applications/Opera GX.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/com.operasoftware.OperaGX"),
-                        "Opera GX Web Önbelleği",
-                        "GX oyun tarayıcısı render önbelleği."
-                    )
-                ]
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/com.operasoftware.OperaGX",
+                    cacheSubPath: "Library/Caches/com.operasoftware.OperaGX"
+                )
             ),
             
             // 13. Vivaldi
@@ -472,14 +316,10 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Vivaldi",
                 bundleId: "com.vivaldi.Vivaldi",
                 appPaths: ["/Applications/Vivaldi.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Vivaldi"),
-                        "Vivaldi Web Önbelleği",
-                        "Vivaldi ağ ve resim önbelleği."
-                    )
-                ]
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Vivaldi",
+                    cacheSubPath: "Library/Caches/Vivaldi"
+                )
             ),
             
             // 14. Orion
@@ -487,95 +327,48 @@ public final class BrowserCacheEngine: Sendable {
                 name: "Orion",
                 bundleId: "com.kagi.kagimacOS",
                 appPaths: ["/Applications/Orion.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/com.kagi.kagimacOS"),
-                        "Orion WebKit Önbelleği",
-                        "WebKit tabanlı hafif önbellek."
-                    )
-                ]
+                kind: .safari(containerName: "com.kagi.kagimacOS")
             ),
             
-            // 15. Tor Browser
-            BrowserSpec(
-                name: "Tor Browser",
-                bundleId: "org.torproject.torbrowser",
-                appPaths: ["/Applications/Tor Browser.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Application Support/TorBrowser-Data/Browser/Caches"),
-                        "Tor Geçici Ağ Önbelleği",
-                        "Tor oturumu geçici ağ dosyaları."
-                    )
-                ]
-            ),
-            
-            // 16. DuckDuckGo Browser
+            // 15. DuckDuckGo Browser
             BrowserSpec(
                 name: "DuckDuckGo",
                 bundleId: "com.duckduckgo.macos.browser",
                 appPaths: ["/Applications/DuckDuckGo.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/com.duckduckgo.macos.browser"),
-                        "DuckDuckGo Web Önbelleği",
-                        "Gizlilik odaklı tarayıcı ağ önbelleği."
-                    ),
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Containers/com.duckduckgo.macos.browser/Data/Library/Caches"),
-                        "DuckDuckGo Konteyner Önbelleği",
-                        "Korumalı alan render önbelleği."
-                    )
-                ]
+                kind: .safari(containerName: "com.duckduckgo.macos.browser")
             ),
             
-            // 17. Zen Browser
+            // 16. Zen Browser
             BrowserSpec(
                 name: "Zen Browser",
                 bundleId: "app.zen-browser.zen",
                 appPaths: ["/Applications/Zen Browser.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/zen"),
-                        "Zen Web Önbelleği",
-                        "Zen tarayıcı HTTP önbelleği."
-                    )
-                ]
+                kind: .gecko(
+                    profileSubPath: "Library/Application Support/zen/Profiles",
+                    cacheSubPath: "Library/Caches/zen"
+                )
             ),
             
-            // 18. Floorp
+            // 17. Floorp
             BrowserSpec(
                 name: "Floorp",
                 bundleId: "org.floorp.floorp",
                 appPaths: ["/Applications/Floorp.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/floorp"),
-                        "Floorp Web Önbelleği",
-                        "Floorp HTTP önbelleği."
-                    )
-                ]
+                kind: .gecko(
+                    profileSubPath: "Library/Application Support/Floorp/Profiles",
+                    cacheSubPath: "Library/Caches/floorp"
+                )
             ),
             
-            // 19. Chromium
+            // 18. Chromium
             BrowserSpec(
                 name: "Chromium",
                 bundleId: "org.chromium.Chromium",
                 appPaths: ["/Applications/Chromium.app"],
-                cacheRules: [
-                    (
-                        .webCache,
-                        (home as NSString).appendingPathComponent("Library/Caches/Chromium"),
-                        "Chromium Web Önbelleği",
-                        "Açık kaynak Chromium önbelleği."
-                    )
-                ]
+                kind: .chromium(
+                    dataSubPath: "Library/Application Support/Chromium",
+                    cacheSubPath: "Library/Caches/Chromium"
+                )
             )
         ]
     }
@@ -595,6 +388,14 @@ public final class BrowserCacheEngine: Sendable {
                 installedPath = spec.appPaths.first(where: { fm.fileExists(atPath: $0) })
             }
             
+            // Eğer uygulama /Applications'ta yoksa ama ~/Applications altındaysa da bul
+            if installedPath == nil {
+                let userAppPath = (home as NSString).appendingPathComponent(spec.appPaths.first ?? "")
+                if fm.fileExists(atPath: userAppPath) {
+                    installedPath = userAppPath
+                }
+            }
+            
             guard let appPath = installedPath else {
                 continue
             }
@@ -602,98 +403,22 @@ public final class BrowserCacheEngine: Sendable {
             // 2. Çalışma durumunu denetle
             let isRunning = !NSRunningApplication.runningApplications(withBundleIdentifier: spec.bundleId).isEmpty
             
-            // 3. Alt kategorileri tara
+            // 3. Alt kategorileri derinlemesine tara
             var subItems: [BrowserSubItem] = []
             
-            // Standart kural taraması
-            for rule in spec.cacheRules {
-                if fm.fileExists(atPath: rule.subPath) {
-                    let size = FastScanner.shared.getPathSize(path: rule.subPath)
-                    if size > 1_000 { // 1 KB üstü
-                        subItems.append(BrowserSubItem(
-                            type: rule.type,
-                            name: rule.name,
-                            path: rule.subPath,
-                            size: size,
-                            isSelected: rule.type.defaultSelected,
-                            descriptionText: rule.desc
-                        ))
-                    }
-                }
-            }
-            
-            // Firefox özel profil derin taraması (storage/default, favicons, crash logs vb.)
-            if spec.bundleId.contains("firefox") || spec.bundleId.contains("mozilla") {
-                let profilesDir = (home as NSString).appendingPathComponent("Library/Application Support/Firefox/Profiles")
-                if let profiles = try? fm.contentsOfDirectory(atPath: profilesDir) {
-                    for profileName in profiles {
-                        let profilePath = (profilesDir as NSString).appendingPathComponent(profileName)
-                        
-                        // Storage / IndexedDB / Web Cache
-                        let storagePath = (profilePath as NSString).appendingPathComponent("storage/default")
-                        if fm.fileExists(atPath: storagePath) {
-                            let sz = FastScanner.shared.getPathSize(path: storagePath)
-                            if sz > 10_000 {
-                                subItems.append(BrowserSubItem(
-                                    type: .webCache,
-                                    name: "Firefox Çevrimdışı Web & Depolama (\(profileName.prefix(8)))",
-                                    path: storagePath,
-                                    size: sz,
-                                    isSelected: true,
-                                    descriptionText: "Web sitelerinin depoladığı çevrimdışı önbellekler ve IndexedDB verileri."
-                                ))
-                            }
-                        }
-                        
-                        // Favicons
-                        let favPath = (profilePath as NSString).appendingPathComponent("favicons.sqlite")
-                        if fm.fileExists(atPath: favPath) {
-                            let sz = FastScanner.shared.getPathSize(path: favPath)
-                            if sz > 1_000 {
-                                subItems.append(BrowserSubItem(
-                                    type: .favicons,
-                                    name: "Firefox Site Simgeleri (\(profileName.prefix(8)))",
-                                    path: favPath,
-                                    size: sz,
-                                    isSelected: true,
-                                    descriptionText: "Yer imleri ve geçmiş sitelerin favicon veritabanı."
-                                ))
-                            }
-                        }
-                        
-                        // Crash / Minidumps
-                        let crashPath = (profilePath as NSString).appendingPathComponent("crashes")
-                        if fm.fileExists(atPath: crashPath) {
-                            let sz = FastScanner.shared.getPathSize(path: crashPath)
-                            if sz > 1_000 {
-                                subItems.append(BrowserSubItem(
-                                    type: .crashLogs,
-                                    name: "Firefox Çökme Raporları",
-                                    path: crashPath,
-                                    size: sz,
-                                    isSelected: true,
-                                    descriptionText: "Eski çökme ve hata teşhis günlükleri."
-                                ))
-                            }
-                        }
-                        
-                        // History (places.sqlite)
-                        let placesPath = (profilePath as NSString).appendingPathComponent("places.sqlite")
-                        if fm.fileExists(atPath: placesPath) {
-                            let sz = FastScanner.shared.getPathSize(path: placesPath)
-                            if sz > 1_000 {
-                                subItems.append(BrowserSubItem(
-                                    type: .history,
-                                    name: "Firefox Tarama Geçmişi",
-                                    path: placesPath,
-                                    size: sz,
-                                    isSelected: false,
-                                    descriptionText: "Geçmişte ziyaret edilen web sayfaları listesi."
-                                ))
-                            }
-                        }
-                    }
-                }
+            switch spec.kind {
+            case .safari(let containerName):
+                subItems = scanSafari(containerName: containerName, bundleId: spec.bundleId)
+                
+            case .chromium(let dataSubPath, let cacheSubPath):
+                let fullDataDir = (home as NSString).appendingPathComponent(dataSubPath)
+                let fullCacheDir = (home as NSString).appendingPathComponent(cacheSubPath)
+                subItems = scanChromium(dataDir: fullDataDir, cacheDir: fullCacheDir, browserName: spec.name)
+                
+            case .gecko(let profileSubPath, let cacheSubPath):
+                let fullProfileDir = (home as NSString).appendingPathComponent(profileSubPath)
+                let fullCacheDir = (home as NSString).appendingPathComponent(cacheSubPath)
+                subItems = scanGecko(profileDir: fullProfileDir, cacheDir: fullCacheDir, browserName: spec.name)
             }
             
             // Eğer tarayıcı kuruluysa ama önbellekler temizse bile tarayıcıyı listede tertemiz olarak göster
@@ -701,7 +426,7 @@ public final class BrowserCacheEngine: Sendable {
                 subItems.append(BrowserSubItem(
                     type: .webCache,
                     name: "Genel Web Önbelleği",
-                    path: spec.cacheRules.first?.subPath ?? appPath,
+                    path: appPath,
                     size: 0,
                     isSelected: false,
                     descriptionText: "Tarayıcı depoları tertemiz durumda."
@@ -720,6 +445,369 @@ public final class BrowserCacheEngine: Sendable {
         }
         
         return detected
+    }
+    
+    // MARK: - Safari / WebKit Derin Tarama
+    private func scanSafari(containerName: String, bundleId: String) -> [BrowserSubItem] {
+        let home = NSHomeDirectory()
+        let fm = FileManager.default
+        var items: [BrowserSubItem] = []
+        
+        let rules: [(type: BrowserDataType, path: String, name: String, desc: String)] = [
+            (
+                .webCache,
+                (home as NSString).appendingPathComponent("Library/Containers/\(containerName)/Data/Library/Caches"),
+                "Safari WebKit & Sayfa Önbelleği",
+                "Ziyaret edilen web sayfalarından indirilen medya, stil, resim ve komut dosyaları."
+            ),
+            (
+                .webCache,
+                (home as NSString).appendingPathComponent("Library/Caches/\(bundleId)"),
+                "Safari HTTP Ağ Önbelleği",
+                "Safari ağ yanıtları ve geçici indirme ara belleği."
+            ),
+            (
+                .favicons,
+                (home as NSString).appendingPathComponent("Library/Safari/Favicon Cache"),
+                "Safari Site Simgeleri (Favicons)",
+                "Sitelerin yerel simge ve dokunma ikonları deposu."
+            ),
+            (
+                .favicons,
+                (home as NSString).appendingPathComponent("Library/Safari/Touch Icons Cache"),
+                "Safari Dokunmatik Simgeler",
+                "Hızlı arama ve yer imi dokunma simgeleri."
+            ),
+            (
+                .offlineStorage,
+                (home as NSString).appendingPathComponent("Library/WebKit/\(bundleId)"),
+                "WebKit Render & HTML5 Deposu",
+                "WebKit motorunun geçici işlem ve render verileri."
+            ),
+            (
+                .cookies,
+                (home as NSString).appendingPathComponent("Library/Containers/\(containerName)/Data/Library/Cookies"),
+                "Safari Oturum Çerezleri",
+                "Web sitelerinin bıraktığı oturum ve kimlik çerezleri."
+            ),
+            (
+                .history,
+                (home as NSString).appendingPathComponent("Library/Safari/History.db"),
+                "Safari Tarama Geçmişi",
+                "Ziyaret edilen web sayfaları URL ve başlık geçmişi."
+            )
+        ]
+        
+        for rule in rules {
+            if fm.fileExists(atPath: rule.path) {
+                let sz = FastScanner.shared.getPathSize(path: rule.path)
+                if sz > 1_000 {
+                    items.append(BrowserSubItem(
+                        type: rule.type,
+                        name: rule.name,
+                        path: rule.path,
+                        size: sz,
+                        isSelected: rule.type.defaultSelected,
+                        descriptionText: rule.desc
+                    ))
+                }
+            }
+        }
+        
+        return items
+    }
+    
+    // MARK: - Chromium Tabanlı Derin Profil Taraması (Chrome, Brave, Arc, Edge, Opera, Vivaldi)
+    private func scanChromium(dataDir: String, cacheDir: String, browserName: String) -> [BrowserSubItem] {
+        let fm = FileManager.default
+        var items: [BrowserSubItem] = []
+        
+        // 1. Caches Dizini Taraması
+        if fm.fileExists(atPath: cacheDir) {
+            if let entries = try? fm.contentsOfDirectory(atPath: cacheDir) {
+                for e in entries {
+                    let profileCache = (cacheDir as NSString).appendingPathComponent(e)
+                    var isDir: ObjCBool = false
+                    if fm.fileExists(atPath: profileCache, isDirectory: &isDir), isDir.boolValue {
+                        let cachePath = (profileCache as NSString).appendingPathComponent("Cache")
+                        let codeCachePath = (profileCache as NSString).appendingPathComponent("Code Cache")
+                        
+                        if fm.fileExists(atPath: cachePath) {
+                            let sz = FastScanner.shared.getPathSize(path: cachePath)
+                            if sz > 1_000 {
+                                items.append(BrowserSubItem(
+                                    type: .webCache,
+                                    name: "Web & Medya Önbelleği (\(e))",
+                                    path: cachePath,
+                                    size: sz,
+                                    isSelected: true,
+                                    descriptionText: "HTTP/HTTPS önbelleğe alınmış resimler, scriptler ve sayfa varlıkları."
+                                ))
+                            }
+                        }
+                        
+                        if fm.fileExists(atPath: codeCachePath) {
+                            let sz = FastScanner.shared.getPathSize(path: codeCachePath)
+                            if sz > 1_000 {
+                                items.append(BrowserSubItem(
+                                    type: .codeCache,
+                                    name: "V8 Derlenmiş Kod Deposu (\(e))",
+                                    path: codeCachePath,
+                                    size: sz,
+                                    isSelected: true,
+                                    descriptionText: "JavaScript kodlarının önceden derlenmiş V8 bayt kodları."
+                                ))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2. Application Support Profilleri Taraması (Default, Profile 1, Profile 2...)
+        if fm.fileExists(atPath: dataDir) {
+            // Global GPU Shader ve Gölgelendirici Önbellekleri
+            let globalCaches = [
+                ("ShaderCache", "Shader Derleyici Deposu"),
+                ("GrShaderCache", "GrShader Grafik Deposu"),
+                ("GraphiteDawnCache", "Graphite Dawn Render Deposu"),
+                ("GPUPersistentCache", "GPU Sürekli Render Önbelleği")
+            ]
+            for (sub, label) in globalCaches {
+                let target = (dataDir as NSString).appendingPathComponent(sub)
+                if fm.fileExists(atPath: target) {
+                    let sz = FastScanner.shared.getPathSize(path: target)
+                    if sz > 10_000 {
+                        items.append(BrowserSubItem(
+                            type: .offlineStorage,
+                            name: label,
+                            path: target,
+                            size: sz,
+                            isSelected: true,
+                            descriptionText: "Donanımsal grafik hızlandırma ve render ara belleği."
+                        ))
+                    }
+                }
+            }
+            
+            // Çökme günlükleri (Crashpad)
+            let crashpad = (dataDir as NSString).appendingPathComponent("Crashpad")
+            if fm.fileExists(atPath: crashpad) {
+                let sz = FastScanner.shared.getPathSize(path: crashpad)
+                if sz > 5_000 {
+                    items.append(BrowserSubItem(
+                        type: .crashLogs,
+                        name: "\(browserName) Hata & Teşhis Günlükleri",
+                        path: crashpad,
+                        size: sz,
+                        isSelected: true,
+                        descriptionText: "Eski çökme ve hata raporları."
+                    ))
+                }
+            }
+            
+            // Profilleri tara
+            if let entries = try? fm.contentsOfDirectory(atPath: dataDir) {
+                for e in entries where e == "Default" || e.hasPrefix("Profile ") {
+                    let profPath = (dataDir as NSString).appendingPathComponent(e)
+                    let pLabel = e == "Default" ? "Ana Profil" : e
+                    
+                    let targets: [(type: BrowserDataType, rel: String, name: String, desc: String)] = [
+                        (
+                            .offlineStorage,
+                            "Service Worker/CacheStorage",
+                            "Service Worker & PWA Deposu (\(pLabel))",
+                            "Çevrimdışı web uygulaması ve Progressive Web App (PWA) önbellekleri."
+                        ),
+                        (
+                            .offlineStorage,
+                            "File System",
+                            "Web Dosya Sistemi Deposu (\(pLabel))",
+                            "Web sitelerinin yerel depolama dosya sistemi havuzu."
+                        ),
+                        (
+                            .offlineStorage,
+                            "IndexedDB",
+                            "IndexedDB Çevrimdışı Veritabanı (\(pLabel))",
+                            "Web sitelerinin yerel IndexedDB önbellek tabloları."
+                        ),
+                        (
+                            .offlineStorage,
+                            "GPUCache",
+                            "GPU & WebGL Gölgelendiricileri (\(pLabel))",
+                            "Donanımsal grafik hızlandırma ara belleği."
+                        ),
+                        (
+                            .favicons,
+                            "Favicons",
+                            "Site Simgeleri (Favicons) (\(pLabel))",
+                            "Site küçük resimleri ve ikon veritabanı."
+                        ),
+                        (
+                            .history,
+                            "History",
+                            "Tarama ve Arama Geçmişi (\(pLabel))",
+                            "Ziyaret edilen web sayfaları ve adres çubuğu arama geçmişi."
+                        ),
+                        (
+                            .cookies,
+                            "Network/Cookies",
+                            "Oturum Çerezleri (\(pLabel))",
+                            "Web sitelerinde oturum açmanızı sağlayan çerezler."
+                        ),
+                        (
+                            .autofill,
+                            "Web Data",
+                            "Otomatik Doldurma & Form Verileri (\(pLabel))",
+                            "Form tamamlama, arama önerileri ve adres tamamlama veritabanı."
+                        ),
+                        (
+                            .passwords,
+                            "Login Data",
+                            "Kayıtlı Parolalar & Şifreler (\(pLabel))",
+                            "Tarayıcıda kayıtlı web sitesi kullanıcı adı ve giriş parolaları."
+                        )
+                    ]
+                    
+                    for t in targets {
+                        let full = (profPath as NSString).appendingPathComponent(t.rel)
+                        if fm.fileExists(atPath: full) {
+                            let sz = FastScanner.shared.getPathSize(path: full)
+                            if sz > 1_000 {
+                                items.append(BrowserSubItem(
+                                    type: t.type,
+                                    name: t.name,
+                                    path: full,
+                                    size: sz,
+                                    isSelected: t.type.defaultSelected,
+                                    descriptionText: t.desc
+                                ))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return items
+    }
+    
+    // MARK: - Gecko / Firefox Tabanlı Derin Profil Taraması
+    private func scanGecko(profileDir: String, cacheDir: String, browserName: String) -> [BrowserSubItem] {
+        let fm = FileManager.default
+        var items: [BrowserSubItem] = []
+        
+        // 1. Profil Dizinleri
+        if fm.fileExists(atPath: profileDir) {
+            if let profiles = try? fm.contentsOfDirectory(atPath: profileDir) {
+                for prof in profiles {
+                    let profPath = (profileDir as NSString).appendingPathComponent(prof)
+                    var isDir: ObjCBool = false
+                    guard fm.fileExists(atPath: profPath, isDirectory: &isDir), isDir.boolValue else { continue }
+                    
+                    let pLabel = String(prof.prefix(12))
+                    
+                    let targets: [(type: BrowserDataType, rel: String, name: String, desc: String)] = [
+                        (
+                            .offlineStorage,
+                            "storage",
+                            "Çevrimdışı Web & IndexedDB Deposu (\(pLabel))",
+                            "Web sitelerinin depoladığı çevrimdışı önbellekler ve IndexedDB veritabanı."
+                        ),
+                        (
+                            .favicons,
+                            "favicons.sqlite",
+                            "Site Simgeleri (Favicons) (\(pLabel))",
+                            "Yer imleri ve geçmiş sitelerin favicon veritabanı."
+                        ),
+                        (
+                            .history,
+                            "places.sqlite",
+                            "Tarama Geçmişi & Yer İmleri Kayıtları (\(pLabel))",
+                            "Ziyaret edilen URL geçmişi ve arama kayıtları."
+                        ),
+                        (
+                            .cookies,
+                            "cookies.sqlite",
+                            "Oturum Çerezleri (\(pLabel))",
+                            "Sitelerdeki açık oturumları saklayan çerez veritabanı."
+                        ),
+                        (
+                            .autofill,
+                            "formhistory.sqlite",
+                            "Otomatik Doldurma & Form Verileri (\(pLabel))",
+                            "Web formlarında girilen otomatik tamamlama verileri."
+                        ),
+                        (
+                            .passwords,
+                            "logins.json",
+                            "Kayıtlı Parolalar & Giriş Verileri (\(pLabel))",
+                            "Tarayıcıda kayıtlı kullanıcı adı ve şifreler."
+                        ),
+                        (
+                            .passwords,
+                            "key4.db",
+                            "Şifreli Parola Anahtarlık Deposu (\(pLabel))",
+                            "Firefox şifreleme anahtarları ve şifre kasası."
+                        ),
+                        (
+                            .offlineStorage,
+                            "sessionstore-backups",
+                            "Sekme & Oturum Yedekleri (\(pLabel))",
+                            "Kapanan pencerelerin ve sekmelerin kurtarma yedekleri."
+                        ),
+                        (
+                            .crashLogs,
+                            "crashes",
+                            "Çökme & Hata Raporları (\(pLabel))",
+                            "Eski hata teşhis ve çökme günlükleri."
+                        )
+                    ]
+                    
+                    for t in targets {
+                        let full = (profPath as NSString).appendingPathComponent(t.rel)
+                        if fm.fileExists(atPath: full) {
+                            let sz = FastScanner.shared.getPathSize(path: full)
+                            if sz > 1_000 {
+                                items.append(BrowserSubItem(
+                                    type: t.type,
+                                    name: t.name,
+                                    path: full,
+                                    size: sz,
+                                    isSelected: t.type.defaultSelected,
+                                    descriptionText: t.desc
+                                ))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 2. Cache Dizinleri (cache2)
+        if fm.fileExists(atPath: cacheDir) {
+            if let profiles = try? fm.contentsOfDirectory(atPath: cacheDir) {
+                for prof in profiles {
+                    let profCache = (cacheDir as NSString).appendingPathComponent(prof)
+                    let cache2 = (profCache as NSString).appendingPathComponent("cache2")
+                    if fm.fileExists(atPath: cache2) {
+                        let sz = FastScanner.shared.getPathSize(path: cache2)
+                        if sz > 5_000 {
+                            items.append(BrowserSubItem(
+                                type: .webCache,
+                                name: "Firefox Web & Medya Önbelleği (\(prof.prefix(8)))",
+                                path: cache2,
+                                size: sz,
+                                isSelected: true,
+                                descriptionText: "HTTP/HTTPS ağ ve medya önbelleği."
+                            ))
+                        }
+                    }
+                }
+            }
+        }
+        
+        return items
     }
     
     /// Unified CleanerEngine için düz CleanItem listesi üretir
@@ -764,6 +852,16 @@ public final class BrowserCacheEngine: Sendable {
                         }
                     } else {
                         try fm.removeItem(atPath: item.path)
+                        
+                        // SQLite ve journal ek dosyalarını da temizle
+                        if item.type == .history || item.type == .passwords || item.type == .autofill || item.type == .favicons || item.type == .cookies {
+                            let wal = item.path + "-wal"
+                            let shm = item.path + "-shm"
+                            let journal = item.path + "-journal"
+                            try? fm.removeItem(atPath: wal)
+                            try? fm.removeItem(atPath: shm)
+                            try? fm.removeItem(atPath: journal)
+                        }
                     }
                     freed += item.size
                 } catch {}

@@ -181,4 +181,32 @@ final class IhyaTests: XCTestCase {
         XCTAssertTrue(summaries.contains(where: { $0.folderName == "Downloads" && $0.count == 1 }))
         XCTAssertTrue(summaries.contains(where: { $0.folderName == "Desktop" && $0.count == 1 }))
     }
+    
+    // MARK: - 9. Tarayıcı & Web Gizlilik Kasası Testleri
+    func testBrowserDataTypeSafetyAndDefaults() async {
+        // Parola ve hassas veriler varsayılan olarak KESİNLİKLE kapalı olmalıdır
+        XCTAssertFalse(BrowserDataType.passwords.defaultSelected)
+        XCTAssertFalse(BrowserDataType.cookies.defaultSelected)
+        XCTAssertFalse(BrowserDataType.history.defaultSelected)
+        XCTAssertFalse(BrowserDataType.autofill.defaultSelected)
+        
+        // Önbellekler ve render verileri varsayılan olarak açık olmalıdır
+        XCTAssertTrue(BrowserDataType.webCache.defaultSelected)
+        XCTAssertTrue(BrowserDataType.codeCache.defaultSelected)
+        XCTAssertTrue(BrowserDataType.offlineStorage.defaultSelected)
+        XCTAssertTrue(BrowserDataType.favicons.defaultSelected)
+        
+        // Parola için kritik güvenlik bayrağı ve uyarı metni kontrolü
+        XCTAssertTrue(BrowserDataType.passwords.isCritical)
+        XCTAssertTrue(BrowserDataType.passwords.isCaution)
+        XCTAssertNotNil(BrowserDataType.passwords.warningNote)
+        
+        // Tarayıcı tespiti testi
+        let browsers = await BrowserCacheEngine.shared.detectInstalledBrowsers()
+        XCTAssertFalse(browsers.isEmpty, "Sistemde en az bir tarayıcı (Safari) kurulu olmalıdır")
+        
+        if let safari = browsers.first(where: { $0.name == "Safari" }) {
+            XCTAssertGreaterThan(safari.totalSize, 0, "Safari veri boyutu sıfırdan büyük olmalıdır")
+        }
+    }
 }

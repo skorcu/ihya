@@ -9,6 +9,7 @@ public struct BrowserPrivacyView: View {
     @State private var hasScanned: Bool = false
     @State private var isCleaning: Bool = false
     @State private var statusToast: String? = nil
+    @State private var showPasswordWarningAlert: Bool = false
     
     public init() {}
     
@@ -61,6 +62,14 @@ public struct BrowserPrivacyView: View {
                 bottomActionToolbar
             }
         }
+        .alert("Kayıtlı Tarayıcı Parolaları Silinsin mi?", isPresented: $showPasswordWarningAlert) {
+            Button("Parolaları Sil ve Arındır", role: .destructive) {
+                performCleaning()
+            }
+            Button("Vazgeç", role: .cancel) {}
+        } message: {
+            Text("Seçili tarayıcılardaki kayıtlı web sitesi kullanıcı adı ve giriş parolalarınız kalıcı olarak silinecektir. Bu işlem geri alınamaz. Devam etmek istediğinize emin misiniz?")
+        }
         .onAppear {
             if !hasScanned && !isScanning {
                 runScan()
@@ -78,8 +87,8 @@ public struct BrowserPrivacyView: View {
             bullets: [
                 .init(
                     icon: "lock.shield.fill",
-                    title: "Sıfır Oturum & Parola Kaybı (Akıllı Koruma)",
-                    description: "Kayıtlı şifreleriniz, yer imleriniz ve açık hesap oturumlarınız ASLA silinmez; yalnızca geçici render ve V8 kod depoları hedeflenir."
+                    title: "Güvenli Varsayılanlar & Seçmeli Kontrol",
+                    description: "Kayıtlı şifreleriniz, yer imleriniz ve oturum çerezleriniz varsayılan olarak korunur. Dilediğiniz kategoriyi serbestçe seçip arındırabilirsiniz."
                 ),
                 .init(
                     icon: "bolt.fill",
@@ -88,8 +97,8 @@ public struct BrowserPrivacyView: View {
                 ),
                 .init(
                     icon: "slider.horizontal.3",
-                    title: "Granüler ve Şeffaf Kontrol",
-                    description: "Önbellekleri temizlerken çerezleri veya geçmişi dilediğiniz gibi koruyun veya opsiyonel olarak silin."
+                    title: "Granüler ve Şeffaf Röntgen",
+                    description: "Her tarayıcının IndexedDB, Service Worker, çerez ve geçmiş boyutlarını tek tek inceleyin; tam kontrol sizin elinizde olsun."
                 )
             ],
             targetDiskInfo: "Safari, Google Chrome, Firefox, Brave, Arc, Edge, Opera, Vivaldi",
@@ -227,7 +236,7 @@ public struct BrowserPrivacyView: View {
                                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                                     .foregroundColor(browser.totalSelectedSize > 0 ? Color(hex: "38BDF8") : .white.opacity(0.4))
                                 
-                                Text("\(browser.items.filter { $0.isSelected }.count) Öğe")
+                                Text("\(browser.items.filter { $0.isSelected }.count) / \(browser.items.count) Öğe")
                                     .font(.system(size: 9))
                                     .foregroundColor(.white.opacity(0.4))
                             }
@@ -311,11 +320,11 @@ public struct BrowserPrivacyView: View {
                     .font(.system(size: 14))
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Akıllı Güvenlik Filtresi (Sıfır Parola Kaybı)")
+                    Text("Akıllı Koruma & Güvenli Varsayılanlar")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                     
-                    Text("Kaydedilmiş şifreleriniz ve yer imleriniz ASLA silinmez. Web & V8 kod önbellekleri güvenle arındırılır.")
+                    Text("Kayıtlı parolalarınız, açık oturum çerezleriniz ve form geçmişiniz varsayılan olarak korunur. Yalnızca siz açıkça işaretlerseniz arındırılır.")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.65))
                 }
@@ -330,17 +339,19 @@ public struct BrowserPrivacyView: View {
             
             // Alt Kategoriler Başlık & Toplu Seçim Çubuğu
             HStack {
-                Text("TEMİZLEME ALANLARI")
+                Text("TEMİZLEME ALANLARI (İSTEĞE BAĞLI SEÇİLEBİLİR)")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(.white.opacity(0.45))
                 
                 Spacer()
                 
-                let allSelected = browser.items.allSatisfy { $0.isSelected }
+                let nonPasswordItems = browser.items.filter { $0.type != .passwords }
+                let allSelected = !nonPasswordItems.isEmpty && nonPasswordItems.allSatisfy { $0.isSelected }
+                
                 Button(action: {
                     setAllItems(browserId: browser.id, selected: !allSelected)
                 }) {
-                    Text(allSelected ? "Seçimi Kaldır" : "Tümünü Seç")
+                    Text(allSelected ? "Seçimi Kaldır" : "Tümünü Seç (Şifreler Hariç)")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundColor(Color(hex: "38BDF8"))
                 }
@@ -353,6 +364,8 @@ public struct BrowserPrivacyView: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(browser.items) { item in
+                        let isCrit = item.type.isCritical
+                        
                         HStack(spacing: 12) {
                             // Seçim Kutusu
                             Toggle("", isOn: Binding(
@@ -367,7 +380,10 @@ public struct BrowserPrivacyView: View {
                             // İkon
                             Image(systemName: item.type.icon)
                                 .font(.system(size: 14))
-                                .foregroundColor(item.type.isCaution ? Color(hex: "F59E0B") : Color(hex: "06B6D4"))
+                                .foregroundColor(
+                                    isCrit ? Color(hex: "EF4444") :
+                                    item.type.isCaution ? Color(hex: "F59E0B") : Color(hex: "06B6D4")
+                                )
                                 .frame(width: 24)
                             
                             // İsim & Açıklama
@@ -375,12 +391,18 @@ public struct BrowserPrivacyView: View {
                                 HStack(spacing: 6) {
                                     Text(item.name)
                                         .font(.system(size: 12, weight: .semibold))
-                                        .foregroundColor(.white)
+                                        .foregroundColor(isCrit ? (item.isSelected ? Color(hex: "FCA5A5") : .white) : .white)
                                     
                                     if let warn = item.type.warningNote {
                                         Text(warn)
-                                            .font(.system(size: 9))
-                                            .foregroundColor(Color(hex: "FBBF24"))
+                                            .font(.system(size: 9, weight: isCrit ? .bold : .regular))
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
+                                            .background(
+                                                isCrit ? Color(hex: "EF4444").opacity(0.2) : Color(hex: "F59E0B").opacity(0.15)
+                                            )
+                                            .foregroundColor(isCrit ? Color(hex: "F87171") : Color(hex: "FBBF24"))
+                                            .cornerRadius(4)
                                     }
                                 }
                                 
@@ -397,8 +419,19 @@ public struct BrowserPrivacyView: View {
                                 .foregroundColor(item.size > 0 ? .white.opacity(0.85) : .white.opacity(0.4))
                         }
                         .padding(10)
-                        .background(Color.white.opacity(0.03))
+                        .background(
+                            isCrit ?
+                            (item.isSelected ? Color(hex: "EF4444").opacity(0.12) : Color(hex: "EF4444").opacity(0.04)) :
+                            Color.white.opacity(0.03)
+                        )
                         .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(
+                                    isCrit ? (item.isSelected ? Color(hex: "EF4444").opacity(0.6) : Color(hex: "EF4444").opacity(0.25)) : Color.clear,
+                                    lineWidth: 1
+                                )
+                        )
                     }
                 }
             }
@@ -427,7 +460,7 @@ public struct BrowserPrivacyView: View {
             }
             
             Button(action: {
-                cleanSelected()
+                handleCleanButtonTap()
             }) {
                 HStack(spacing: 6) {
                     if isCleaning {
@@ -483,6 +516,11 @@ public struct BrowserPrivacyView: View {
         if let bIndex = browsers.firstIndex(where: { $0.id == browserId }) {
             if let iIndex = browsers[bIndex].items.firstIndex(where: { $0.id == itemId }) {
                 browsers[bIndex].items[iIndex].isSelected = newValue
+                if newValue && browsers[bIndex].items[iIndex].type == .passwords {
+                    HapticManager.shared.triggerWarning()
+                } else {
+                    HapticManager.shared.triggerClick()
+                }
             }
         }
     }
@@ -490,6 +528,10 @@ public struct BrowserPrivacyView: View {
     private func setAllItems(browserId: String, selected: Bool) {
         if let bIndex = browsers.firstIndex(where: { $0.id == browserId }) {
             for i in 0..<browsers[bIndex].items.count {
+                // Güvenlik Kalkanı: "Tümünü Seç" dense dahi şifreler kullanıcı bizzat kutucuğa basmadıkça işaretlenmez!
+                if browsers[bIndex].items[i].type == .passwords && selected {
+                    continue
+                }
                 browsers[bIndex].items[i].isSelected = selected
             }
         }
@@ -505,7 +547,16 @@ public struct BrowserPrivacyView: View {
         }
     }
     
-    private func cleanSelected() {
+    private func handleCleanButtonTap() {
+        let hasSelectedPasswords = browsers.contains(where: { $0.items.contains(where: { $0.isSelected && $0.type == .passwords }) })
+        if hasSelectedPasswords {
+            showPasswordWarningAlert = true
+        } else {
+            performCleaning()
+        }
+    }
+    
+    private func performCleaning() {
         isCleaning = true
         Task {
             var itemsToClean: [BrowserSubItem] = []

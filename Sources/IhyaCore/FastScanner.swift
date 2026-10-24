@@ -17,7 +17,7 @@ public final class FastScanner: Sendable {
             at: url,
             includingPropertiesForKeys: Array(resourceKeys),
             options: [.skipsPackageDescendants],
-            errorHandler: nil
+            errorHandler: { _, _ in true }
         ) else {
             return 0
         }

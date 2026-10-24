@@ -268,22 +268,47 @@ public struct DuplicateScanProgress: Sendable {
     
     public let step: Step
     public let currentPath: String
-    public let processedFiles: Int
+    public let totalScannedFiles: Int
+    public let processedCandidates: Int
     public let totalCandidates: Int
     public let foundDuplicateGroups: Int
     public let progressFraction: Double
     
+    public var processedFiles: Int {
+        totalScannedFiles
+    }
+    
     public init(
         step: Step,
         currentPath: String,
-        processedFiles: Int = 0,
+        totalScannedFiles: Int = 0,
+        processedCandidates: Int = 0,
         totalCandidates: Int = 0,
         foundDuplicateGroups: Int = 0,
         progressFraction: Double = 0.0
     ) {
         self.step = step
         self.currentPath = currentPath
-        self.processedFiles = processedFiles
+        self.totalScannedFiles = totalScannedFiles
+        self.processedCandidates = processedCandidates
+        self.totalCandidates = totalCandidates
+        self.foundDuplicateGroups = foundDuplicateGroups
+        self.progressFraction = progressFraction
+    }
+    
+    // Geriye dönük uyumluluk başlatıcısı
+    public init(
+        step: Step,
+        currentPath: String,
+        processedFiles: Int,
+        totalCandidates: Int,
+        foundDuplicateGroups: Int,
+        progressFraction: Double
+    ) {
+        self.step = step
+        self.currentPath = currentPath
+        self.totalScannedFiles = processedFiles
+        self.processedCandidates = processedFiles
         self.totalCandidates = totalCandidates
         self.foundDuplicateGroups = foundDuplicateGroups
         self.progressFraction = progressFraction

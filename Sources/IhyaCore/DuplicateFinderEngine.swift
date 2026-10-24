@@ -243,7 +243,7 @@ public final class DuplicateFinderEngine: ObservableObject {
         
         // 1. Aşama: Boyut Eşleme (Tüm seçilen dizinlerde)
         let filterCommonOnly = self.onlyCommonUserFiles
-        let candidatesBySize = await Task.detached(priority: .userInitiated) {
+        let (candidatesBySize, totalScannedCount) = await Task.detached(priority: .userInitiated) {
             self.collectFilesBySize(inDirectories: validPaths, minSize: minSize, onlyCommonUserFiles: filterCommonOnly, onProgress: onProgress)
         }.value
         
@@ -252,7 +252,8 @@ public final class DuplicateFinderEngine: ObservableObject {
                 onProgress?(DuplicateScanProgress(
                     step: .organizing,
                     currentPath: "Tarama tamamlandı (Çift dosya bulunamadı)",
-                    processedFiles: 0,
+                    totalScannedFiles: totalScannedCount,
+                    processedCandidates: 0,
                     totalCandidates: 0,
                     foundDuplicateGroups: 0,
                     progressFraction: 1.0
@@ -264,14 +265,20 @@ public final class DuplicateFinderEngine: ObservableObject {
         let totalCandidatesCount = candidatesBySize.values.reduce(0) { $0 + $1.count }
         
         // 2 & 3. Aşama: Prefix (4KB) ve Suffix (4KB) Hash Filtresi
-        let candidatesByPartialHash = await self.filterByPartialHashes(candidatesBySize: candidatesBySize, totalCandidateFiles: totalCandidatesCount, onProgress: onProgress)
+        let candidatesByPartialHash = await self.filterByPartialHashes(
+            candidatesBySize: candidatesBySize,
+            totalScannedFiles: totalScannedCount,
+            totalCandidateFiles: totalCandidatesCount,
+            onProgress: onProgress
+        )
         
         guard !candidatesByPartialHash.isEmpty && !Task.isCancelled else {
             if !Task.isCancelled {
                 onProgress?(DuplicateScanProgress(
                     step: .organizing,
                     currentPath: "Tarama tamamlandı (Benzer boyutlu dosyalar farklı çıktı)",
-                    processedFiles: totalCandidatesCount,
+                    totalScannedFiles: totalScannedCount,
+                    processedCandidates: totalCandidatesCount,
                     totalCandidates: totalCandidatesCount,
                     foundDuplicateGroups: 0,
                     progressFraction: 1.0
@@ -281,13 +288,18 @@ public final class DuplicateFinderEngine: ObservableObject {
         }
         
         // 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256 Doğrulama
-        let fullHashGroups = await computeFullHashesConcurrently(candidates: candidatesByPartialHash, onProgress: onProgress)
+        let fullHashGroups = await computeFullHashesConcurrently(
+            candidates: candidatesByPartialHash,
+            totalScannedFiles: totalScannedCount,
+            onProgress: onProgress
+        )
         if Task.isCancelled { return [] }
         
         onProgress?(DuplicateScanProgress(
             step: .organizing,
             currentPath: "İkiz dosya grupları tanzim ediliyor...",
-            processedFiles: totalCandidatesCount,
+            totalScannedFiles: totalScannedCount,
+            processedCandidates: totalCandidatesCount,
             totalCandidates: totalCandidatesCount,
             foundDuplicateGroups: fullHashGroups.count,
             progressFraction: 0.98
@@ -299,7 +311,8 @@ public final class DuplicateFinderEngine: ObservableObject {
         onProgress?(DuplicateScanProgress(
             step: .organizing,
             currentPath: "İşlem tamamlandı: \(results.count) ikiz grup tespit edildi.",
-            processedFiles: totalCandidatesCount,
+            totalScannedFiles: totalScannedCount,
+            processedCandidates: totalCandidatesCount,
             totalCandidates: totalCandidatesCount,
             foundDuplicateGroups: results.count,
             progressFraction: 1.0
@@ -314,7 +327,7 @@ public final class DuplicateFinderEngine: ObservableObject {
         minSize: Int64,
         onlyCommonUserFiles: Bool,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
-    ) -> [Int64: [String]] {
+    ) -> (candidates: [Int64: [String]], totalScannedCount: Int) {
         var sizeMap: [Int64: [String]] = [:]
         let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
         let fm = FileManager.default
@@ -343,7 +356,8 @@ public final class DuplicateFinderEngine: ObservableObject {
                     onProgress?(DuplicateScanProgress(
                         step: .sizeGrouping,
                         currentPath: path,
-                        processedFiles: scannedCount,
+                        totalScannedFiles: scannedCount,
+                        processedCandidates: matchingCandidates,
                         totalCandidates: matchingCandidates,
                         foundDuplicateGroups: 0,
                         progressFraction: min(0.30, Double(scannedCount) / 3000.0 * 0.30)
@@ -379,17 +393,19 @@ public final class DuplicateFinderEngine: ObservableObject {
         onProgress?(DuplicateScanProgress(
             step: .sizeGrouping,
             currentPath: "Boyut analizi tamamlandı (\(totalCandidates) aday dosya)",
-            processedFiles: scannedCount,
+            totalScannedFiles: scannedCount,
+            processedCandidates: totalCandidates,
             totalCandidates: totalCandidates,
             foundDuplicateGroups: 0,
             progressFraction: 0.30
         ))
-        return filtered
+        return (filtered, scannedCount)
     }
     
     // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi (Önbellek Destekli)
     nonisolated private func filterByPartialHashes(
         candidatesBySize: [Int64: [String]],
+        totalScannedFiles: Int,
         totalCandidateFiles: Int,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) async -> [[String]] {
@@ -409,7 +425,8 @@ public final class DuplicateFinderEngine: ObservableObject {
                     onProgress?(DuplicateScanProgress(
                         step: .partialHash,
                         currentPath: path,
-                        processedFiles: processed,
+                        totalScannedFiles: totalScannedFiles,
+                        processedCandidates: processed,
                         totalCandidates: total,
                         foundDuplicateGroups: candidateClusters.count,
                         progressFraction: min(0.65, fraction)
@@ -471,6 +488,7 @@ public final class DuplicateFinderEngine: ObservableObject {
     // MARK: - 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256 (Kademeli & CPU Korumalı)
     nonisolated private func computeFullHashesConcurrently(
         candidates: [[String]],
+        totalScannedFiles: Int,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) async -> [String: (size: Int64, paths: [String])] {
         var allPaths: [String] = []
@@ -520,7 +538,8 @@ public final class DuplicateFinderEngine: ObservableObject {
                     onProgress?(DuplicateScanProgress(
                         step: .fullSHA256,
                         currentPath: path,
-                        processedFiles: processed,
+                        totalScannedFiles: totalScannedFiles,
+                        processedCandidates: processed,
                         totalCandidates: totalFiles,
                         foundDuplicateGroups: duplicateGroupCount,
                         progressFraction: min(0.95, fraction)
