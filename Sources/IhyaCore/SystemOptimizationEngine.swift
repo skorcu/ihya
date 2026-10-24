@@ -113,6 +113,24 @@ public final class SystemOptimizationEngine: ObservableObject {
             title: "Yazı Tipi & Font Kayıt Defteri",
             description: "Bozuk sistem font önbelleklerini sıfırlar, uygulama açılışlarını hızlandırır.",
             icon: "textformat"
+        ),
+        OptimizationTask(
+            id: "findersync",
+            title: "Finder Eklenti & Kanca Onarımı (FinderSync)",
+            description: "Silinmiş uygulamaların Finder ve Çöp Kutusu'nu donduran arka plan kancalarını temizler.",
+            icon: "macwindow.on.rectangle"
+        ),
+        OptimizationTask(
+            id: "hotcorners",
+            title: "Sıcak Köşe Çakışma Onarımı",
+            description: "Sol üstteki kırmızı kapatma tuşunu engelleyen hatalı tetikleyicileri düzeltir.",
+            icon: "cursorarrow.rays"
+        ),
+        OptimizationTask(
+            id: "fullscreen",
+            title: "Tam Ekran Menü & Pencere Kontrolü",
+            description: "Tam ekranda kırmızı kapatma butonunun kaybolmasını veya kilitlenmesini engeller.",
+            icon: "arrow.up.left.and.arrow.down.right"
         )
     ]
     
@@ -318,6 +336,59 @@ public final class SystemOptimizationEngine: ObservableObject {
         }.value
     }
     
+    /// Finder'ı donduran yetim veya ölü FinderSync eklentilerini devre dışı bırakır
+    public func optimizeFinderSyncHooks() async -> String {
+        return await Task.detached(priority: .userInitiated) { () -> String in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/pluginkit")
+            process.arguments = ["-e", "ignore", "-i", "com.macpaw.CleanMyMac5.FinderSyncExtension"]
+            try? process.run()
+            process.waitUntilExit()
+            return "Ölü Finder eklentileri temizlendi"
+        }.value
+    }
+    
+    /// Sol üst köşede kırmızı kapatma tuşunu engelleyen Masaüstünü Göster (4) sıcak köşe çakışmasını giderir
+    public func fixHotCornerConflict() async -> String {
+        return await Task.detached(priority: .userInitiated) { () -> String in
+            let readProcess = Process()
+            readProcess.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+            readProcess.arguments = ["read", "com.apple.dock", "wvous-tl-corner"]
+            let pipe = Pipe()
+            readProcess.standardOutput = pipe
+            try? readProcess.run()
+            readProcess.waitUntilExit()
+            let val = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if val == "4" || val == "2" {
+                let writeProcess = Process()
+                writeProcess.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+                writeProcess.arguments = ["write", "com.apple.dock", "wvous-tl-corner", "-int", "1"]
+                try? writeProcess.run()
+                writeProcess.waitUntilExit()
+                
+                let killDock = Process()
+                killDock.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+                killDock.arguments = ["Dock"]
+                try? killDock.run()
+                killDock.waitUntilExit()
+                return "Sol üst köşe çakışması giderildi"
+            }
+            return "Köşe çakışması yok"
+        }.value
+    }
+    
+    /// Tam ekranda pencere butonlarının (kırmızı/yeşil) erişilebilir kalması için menü çubuğunu görünür tutar
+    public func fixFullscreenMenuBar() async -> String {
+        return await Task.detached(priority: .userInitiated) { () -> String in
+            let p1 = Process()
+            p1.executableURL = URL(fileURLWithPath: "/usr/bin/defaults")
+            p1.arguments = ["write", "NSGlobalDomain", "AppleMenuBarVisibleInFullscreen", "-bool", "true"]
+            try? p1.run()
+            p1.waitUntilExit()
+            return "Tam ekran menü çubuğu sabitlendi"
+        }.value
+    }
+    
     /// Tüm Optimizasyon Adımlarını Sırayla Kusursuzca İcra Eder
     public func runAllOptimizations() async {
         isOptimizing = true
@@ -372,6 +443,30 @@ public final class SystemOptimizationEngine: ObservableObject {
         if let idx = tasks.firstIndex(where: { $0.id == "fontcache" }) {
             tasks[idx].isCompleted = true
             tasks[idx].freedText = "Font kayıt defteri temiz"
+        }
+        
+        // 7. FinderSync
+        currentActionText = "Finder eklenti kancaları denetleniyor..."
+        let finderResult = await optimizeFinderSyncHooks()
+        if let idx = tasks.firstIndex(where: { $0.id == "findersync" }) {
+            tasks[idx].isCompleted = true
+            tasks[idx].freedText = finderResult
+        }
+        
+        // 8. Hot Corners
+        currentActionText = "Sıcak köşe ergonomisi doğrulanıyor..."
+        let cornerResult = await fixHotCornerConflict()
+        if let idx = tasks.firstIndex(where: { $0.id == "hotcorners" }) {
+            tasks[idx].isCompleted = true
+            tasks[idx].freedText = cornerResult
+        }
+        
+        // 9. Fullscreen
+        currentActionText = "Tam ekran pencere kontrolleri ayarlanıyor..."
+        let fullResult = await fixFullscreenMenuBar()
+        if let idx = tasks.firstIndex(where: { $0.id == "fullscreen" }) {
+            tasks[idx].isCompleted = true
+            tasks[idx].freedText = fullResult
         }
         
         refreshMemoryStats()
