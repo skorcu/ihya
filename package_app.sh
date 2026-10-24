@@ -79,9 +79,9 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.1</string>
+    <string>1.3.0</string>
     <key>CFBundleVersion</key>
-    <string>1.2.1</string>
+    <string>1.3.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>NSHighResolutionCapable</key>
@@ -95,12 +95,21 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
 EOF
 
 # 4. Kod İmzalama
-echo "5/5 Apple Sertifikası ile imzalanıyor..."
-DEV_ID=$(security find-identity -p codesigning -v | grep "Apple Development:" | grep -v "REVOKED" | head -n 1 | awk '{print $2}')
+echo "5/6 Apple Developer ID Sertifikası ile imzalanıyor..."
+DEV_ID=$(security find-identity -p codesigning -v | grep "Developer ID Application:" | grep -v "REVOKED" | head -n 1 | awk '{print $2}')
+
+if [ -z "$DEV_ID" ]; then
+    echo "Developer ID bulunamadı, Apple Development deneniyor..."
+    DEV_ID=$(security find-identity -p codesigning -v | grep "Apple Development:" | grep -v "REVOKED" | head -n 1 | awk '{print $2}')
+fi
 
 if [ -n "$DEV_ID" ]; then
-    echo "Kullanılan Apple Geliştirici Sertifikası: $DEV_ID"
-    codesign --force --deep --sign "$DEV_ID" --entitlements "$DIR/Entitlements.plist" --identifier "com.caneser.ihya" "$APP_DIR"
+    echo "Kullanılan Apple Sertifikası: $DEV_ID"
+    # Önce iç ikili dosyaları Hardened Runtime ile imzala
+    if [ -f "$APP_DIR/Contents/MacOS/ihya" ]; then
+        codesign --force --options runtime --timestamp --sign "$DEV_ID" --entitlements "$DIR/Entitlements.plist" --identifier "com.caneser.ihya.cli" "$APP_DIR/Contents/MacOS/ihya"
+    fi
+    codesign --force --options runtime --timestamp --sign "$DEV_ID" --entitlements "$DIR/Entitlements.plist" --identifier "com.caneser.ihya" "$APP_DIR"
 else
     echo "Yerel kararlı ad-hoc imza uygulanıyor..."
     codesign --force --deep --sign - --requirements '=designated => identifier "com.caneser.ihya"' --entitlements "$DIR/Entitlements.plist" --identifier "com.caneser.ihya" "$APP_DIR"
@@ -167,6 +176,22 @@ rm -f "$DMG_OUTPUT"
 hdiutil create -volname "İhyâ" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_OUTPUT"
 rm -rf "$DIR/dist/build.noindex"
 
+# 7. Apple Notarization & Stapling
+if [ -n "$DEV_ID" ]; then
+    echo "6/6 Apple Noter Onayı (Notarization) alınıyor..."
+    codesign --force --sign "$DEV_ID" --timestamp "$DMG_OUTPUT"
+    
+    echo "Apple sunucularına iletiliyor (notarytool)..."
+    if xcrun notarytool submit "$DMG_OUTPUT" --keychain-profile "KASIF_NOTARY" --wait; then
+        echo "Apple resmi noter onayını damgalıyor (stapling)..."
+        xcrun stapler staple "$DMG_OUTPUT"
+        xcrun stapler staple "/Applications/İhyâ.app" 2>/dev/null || true
+        echo "Resmi Apple Noter Onayı Başarıyla Tamamlandı!"
+    else
+        echo "Uyarı: Noter onayı alınamadı, ancak paket Developer ID ile imzalandı."
+    fi
+fi
+
 # Dist içindeki .app paketini LaunchServices'tan kesin kaldır (sadece /Applications kalsın)
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP_DIR" 2>/dev/null || true
 rm -rf "$APP_DIR"
@@ -184,7 +209,7 @@ if [ -d "$WEB_OUT_DIR" ]; then
 fi
 
 echo "============================================="
-echo "  İHYÂ v1.2.1 Universal 2 Başarıyla Üretildi!"
+echo "  İHYÂ v1.3.0 Universal 2 Başarıyla Üretildi!"
 echo "  DMG Dosyası: $DMG_OUTPUT"
 echo "  Boyut: $(du -h "$DMG_OUTPUT" | cut -f1)"
 echo "============================================="

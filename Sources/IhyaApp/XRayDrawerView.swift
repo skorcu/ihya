@@ -16,6 +16,15 @@ public struct XRayDrawerView: View {
         engine.categories.first(where: { $0.category == category.category }) ?? category
     }
     
+    private func safetyColor(for level: SafetyLevel) -> Color {
+        switch level {
+        case .safe: return Color(hex: "10B981") // Green
+        case .caution: return Color(hex: "F59E0B") // Amber
+        case .developer: return Color(hex: "8B5CF6") // Purple
+        case .protected: return Color(hex: "EF4444") // Red
+        }
+    }
+    
     public var body: some View {
         VStack(spacing: 0) {
             // Çekmece Başlığı
@@ -82,13 +91,13 @@ public struct XRayDrawerView: View {
                                                 .foregroundColor(.primary)
                                                 .lineLimit(1)
                                             
-                                            // Güvenli Rozeti
-                                            Text("Güvenli")
+                                            // Güvenlik Düzeyi Rozeti
+                                            Text(item.safety.displayName)
                                                 .font(.system(size: 9, weight: .bold))
                                                 .padding(.horizontal, 5)
                                                 .padding(.vertical, 2)
-                                                .background(Color.green.opacity(0.15))
-                                                .foregroundColor(.green)
+                                                .background(safetyColor(for: item.safety).opacity(0.15))
+                                                .foregroundColor(safetyColor(for: item.safety))
                                                 .cornerRadius(4)
                                         }
                                         
@@ -97,9 +106,26 @@ public struct XRayDrawerView: View {
                                             .foregroundColor(.secondary)
                                             .lineLimit(1)
                                             .truncationMode(.middle)
+                                        
+                                        if !item.itemDescription.isEmpty {
+                                            Text(item.itemDescription)
+                                                .font(.system(size: 9.5))
+                                                .foregroundColor(.secondary.opacity(0.8))
+                                                .lineLimit(1)
+                                        }
                                     }
                                     
                                     Spacer()
+                                    
+                                    Button(action: {
+                                        NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                                    }) {
+                                        Image(systemName: "arrow.up.forward.app")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.secondary.opacity(0.7))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Finder'da Göster")
                                     
                                     Text(item.formattedSize)
                                         .font(.system(size: 11, weight: .bold, design: .monospaced))

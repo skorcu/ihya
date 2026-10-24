@@ -144,6 +144,54 @@ public final class DeepSystemJunkScanner: Sendable {
             }
         }
         
+        // 7. iOS & iPadOS Cihaz Çökme & Tanı Günlükleri (~/Library/Logs/CrashReporter/MobileDevice)
+        let iosCrashLogs = (home as NSString).appendingPathComponent("Library/Logs/CrashReporter/MobileDevice")
+        if fm.fileExists(atPath: iosCrashLogs) {
+            let sz = FastScanner.shared.getPathSize(path: iosCrashLogs)
+            if sz > 2_000_000 {
+                items.append(CleanItem(
+                    name: "iOS Cihaz Tanı & Çökme Günlükleri",
+                    path: iosCrashLogs,
+                    size: sz,
+                    category: .systemJunk,
+                    safety: .safe,
+                    itemDescription: "Bağlanan iPhone/iPad cihazlarından aktarılmış eski hata ve kilitlenme logları."
+                ))
+            }
+        }
+        
+        // 8. QuickLook & Küçük Resim Önbellekleri (~/Library/Caches/Quick Look)
+        let quickLookCache = (home as NSString).appendingPathComponent("Library/Caches/Quick Look")
+        if fm.fileExists(atPath: quickLookCache) {
+            let sz = FastScanner.shared.getPathSize(path: quickLookCache)
+            if sz > 5_000_000 {
+                items.append(CleanItem(
+                    name: "QuickLook Küçük Resim Önbelleği",
+                    path: quickLookCache,
+                    size: sz,
+                    category: .systemJunk,
+                    safety: .safe,
+                    itemDescription: "Finder ve boşluk tuşu önizlemeleri için üretilmiş geçici raster önbellekleri."
+                ))
+            }
+        }
+        
+        // 9. Apple Media Services & App Store Önbellekleri
+        let amsCache = (home as NSString).appendingPathComponent("Library/Caches/com.apple.AppleMediaServices")
+        if fm.fileExists(atPath: amsCache) {
+            let sz = FastScanner.shared.getPathSize(path: amsCache)
+            if sz > 5_000_000 {
+                items.append(CleanItem(
+                    name: "App Store & Medya Önbellekleri",
+                    path: amsCache,
+                    size: sz,
+                    category: .systemJunk,
+                    safety: .safe,
+                    itemDescription: "App Store, Apple Music ve TV katalog geçici verileri."
+                ))
+            }
+        }
+        
         return items
     }
 }

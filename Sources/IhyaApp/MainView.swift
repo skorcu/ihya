@@ -250,7 +250,7 @@ public struct MainView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.2.2") (Native)")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.0") (Native)")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -506,6 +506,7 @@ public struct MainView: View {
     }
     
     private func startSmartCleanScan() {
+        engine.resetCleanedState()
         Task {
             await engine.runFullScan()
             SoundManager.shared.playSuccess()
@@ -547,13 +548,14 @@ public struct MainView: View {
                 let sysCat = engine.categories.first(where: { $0.category == .systemJunk })
                 let isSysActive = engine.currentPhase == .systemJunk
                 let isSysDone = engine.currentPhase != .idle && engine.currentPhase != .systemJunk
+                let isSysCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Sistem Arınması",
                     subtitle: isSysActive ? "Çöpler Taranıyor..." : (sysCat?.totalSize ?? 0 > 0 ? sysCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isSysActive ? "Taranıyor..." : (engine.hasCleaned ? "Arındırıldı" : (isSysDone ? "Açılabilir Alan" : "Önbellek & Günlükler")),
+                    statusText: isSysActive ? "Taranıyor..." : (isSysCleaned ? "Arındırıldı" : (isSysDone ? "Açılabilir Alan" : "Önbellek & Günlükler")),
                     isCompleted: isSysDone && (sysCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isSysCleaned,
                     isActive: isSysActive,
                     emblemStyle: .emerald,
                     emblemIcon: "sparkles",
@@ -575,13 +577,14 @@ public struct MainView: View {
                 let browserCat = engine.categories.first(where: { $0.category == .browserCaches })
                 let isBrowserActive = engine.currentPhase == .browserCaches
                 let isBrowserDone = engine.currentPhase != .idle && engine.currentPhase != .systemJunk && engine.currentPhase != .browserCaches
+                let isBrowserCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Tarayıcı & Web",
                     subtitle: isBrowserActive ? "Web Taranıyor..." : (browserCat?.totalSize ?? 0 > 0 ? browserCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isBrowserActive ? "Taranıyor..." : (engine.hasCleaned ? "Arındırıldı" : (isBrowserDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Safari, Chrome, Brave"))),
+                    statusText: isBrowserActive ? "Taranıyor..." : (isBrowserCleaned ? "Arındırıldı" : (isBrowserDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Safari, Chrome, Brave"))),
                     isCompleted: isBrowserDone && (browserCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isBrowserCleaned,
                     isActive: isBrowserActive,
                     emblemStyle: .cyan,
                     emblemIcon: "globe",
@@ -607,13 +610,14 @@ public struct MainView: View {
                 let isUpDone = engine.currentPhase == .completed
                 let updatesCount = engine.availableUpdates.count
                 let totalApps = engine.totalInstalledAppsCount
+                let isUpCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Uygulama & Güncelleme",
                     subtitle: isUpActive ? "Sürümler Taranıyor..." : (updatesCount > 0 ? "\(updatesCount) Kritik Güncelleme" : "\(totalApps > 0 ? "\(totalApps)" : "73") Uygulama"),
                     statusText: isUpActive ? "Taranıyor..." : (updatesCount > 0 ? "Güncellemeye Hazır" : (isUpDone ? "Tüm Uygulamalar Güncel" : (engine.isScanning ? "Sırada bekliyor..." : "Sparkle & Paket Takibi"))),
                     isCompleted: isUpDone,
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isUpCleaned,
                     isActive: isUpActive,
                     emblemStyle: .sapphire,
                     emblemIcon: "arrow.triangle.2.circlepath.circle.fill",
@@ -636,13 +640,14 @@ public struct MainView: View {
                 // 4. Kart: Hayalet Servisler
                 let isGhostActive = engine.currentPhase == .ghostDaemons
                 let isGhostDone = engine.currentPhase == .duplicates || engine.currentPhase == .appLipo || engine.currentPhase == .completed
+                let isGhostCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Hayalet Servisler",
                     subtitle: isGhostActive ? "Ajanlar İnceleniyor..." : "\(engine.ghostDaemons.count) Tehdit",
-                    statusText: isGhostActive ? "Taranıyor..." : (engine.hasCleaned ? "Temizlendi" : (isGhostDone ? "Temizlenmeye Hazır" : (engine.isScanning ? "Sırada bekliyor..." : "Pil Koruması Tam"))),
+                    statusText: isGhostActive ? "Taranıyor..." : (isGhostCleaned ? "Temizlendi" : (isGhostDone ? "Temizlenmeye Hazır" : (engine.isScanning ? "Sırada bekliyor..." : "Pil Koruması Tam"))),
                     isCompleted: isGhostDone,
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isGhostCleaned,
                     isActive: isGhostActive,
                     emblemStyle: .violet,
                     emblemIcon: "bolt.shield.fill"
@@ -656,13 +661,14 @@ public struct MainView: View {
                 let isDupActive = engine.currentPhase == .duplicates
                 let isDupDone = engine.currentPhase == .appLipo || engine.currentPhase == .completed
                 let dupTotalReclaim = engine.duplicates.reduce(0) { $0 + $1.reclaimableSize }
+                let isDupCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Çift Dosya Avcısı",
                     subtitle: isDupActive ? "İkizler Aranıyor..." : "\(engine.duplicates.count) İkiz Grup",
-                    statusText: isDupActive ? "Taranıyor..." : (engine.hasCleaned ? "Temizlendi" : (isDupDone ? "\(ByteCountFormatter.string(fromByteCount: dupTotalReclaim, countStyle: .file)) Kopya" : (engine.isScanning ? "Sırada bekliyor..." : "İkiz İndirmeler & Belgeler"))),
+                    statusText: isDupActive ? "Taranıyor..." : (isDupCleaned ? "Temizlendi" : (isDupDone ? "\(ByteCountFormatter.string(fromByteCount: dupTotalReclaim, countStyle: .file)) Kopya" : (engine.isScanning ? "Sırada bekliyor..." : "İkiz İndirmeler & Belgeler"))),
                     isCompleted: isDupDone && !engine.duplicates.isEmpty,
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isDupCleaned,
                     isActive: isDupActive,
                     emblemStyle: .sapphire,
                     emblemIcon: "doc.on.doc.fill",
@@ -681,13 +687,14 @@ public struct MainView: View {
                 let devCat = engine.categories.first(where: { $0.category == .developerVault })
                 let isDevActive = engine.currentPhase == .developerVault
                 let isDevDone = engine.currentPhase == .completed
+                let isDevCleaned = engine.hasCleaned && !engine.isScanning
                 
                 BentoCardView(
                     title: "Geliştirici Kasası",
                     subtitle: isDevActive ? "Önbellekler Taranıyor..." : (devCat?.totalSize ?? 0 > 0 ? devCat!.formattedSize : "Taramaya Hazır"),
-                    statusText: isDevActive ? "Taranıyor..." : (engine.hasCleaned ? "Arındırıldı" : (isDevDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Xcode, Docker, Node"))),
+                    statusText: isDevActive ? "Taranıyor..." : (isDevCleaned ? "Arındırıldı" : (isDevDone ? "Açılabilir Alan" : (engine.isScanning ? "Sırada bekliyor..." : "Xcode, Docker, Node"))),
                     isCompleted: isDevDone && (devCat?.totalSize ?? 0 > 0 || engine.currentPhase == .completed),
-                    isCleaned: engine.hasCleaned,
+                    isCleaned: isDevCleaned,
                     isActive: isDevActive,
                     emblemStyle: .amber,
                     emblemIcon: "hammer.fill",
@@ -870,49 +877,118 @@ public struct MainView: View {
                     )
                 }
             } else {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Geliştirici Kasası Sonuçları")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("\(items.count) Adet Geliştirici Artığı Bulundu")
+                            let totalDevSize = items.reduce(0) { $0 + $1.size }
+                            Text("\(items.count) Öğe • Toplam: \(ByteCountFormatter.string(fromByteCount: totalDevSize, countStyle: .file))")
                                 .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.6))
                         }
                         Spacer()
                         
-                        Button("Geliştirici Artıklarını Temizle") {
+                        Button(action: {
                             Task {
                                 _ = await engine.performCleanCategory(.developerVault)
                                 SoundManager.shared.playCleanFinished()
                                 HapticManager.shared.triggerSuccess()
                             }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                Text("Geliştirici Artıklarını Temizle")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "F59E0B"), Color(hex: "D97706")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                            .shadow(color: Color(hex: "F59E0B").opacity(0.3), radius: 6, y: 2)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 16)
                     .padding(.horizontal, 24)
                     
-                    List(items) { item in
-                        HStack(spacing: 12) {
-                            Image(systemName: "hammer.fill")
-                                .foregroundColor(Color(hex: "F59E0B"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.name)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                Text(item.path)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.white.opacity(0.5))
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            ForEach(items) { item in
+                                HStack(spacing: 12) {
+                                    Button(action: {
+                                        engine.toggleItemSelection(categoryType: .developerVault, itemId: item.id)
+                                        HapticManager.shared.triggerClick()
+                                    }) {
+                                        Image(systemName: item.isSelected ? "checkmark.square.fill" : "square")
+                                            .font(.system(size: 15))
+                                            .foregroundColor(item.isSelected ? Color(hex: "F59E0B") : .white.opacity(0.3))
+                                    }
+                                    .buttonStyle(.plain)
+                                    
+                                    Image(systemName: "hammer.fill")
+                                        .font(.system(size: 15))
+                                        .foregroundColor(Color(hex: "F59E0B"))
+                                        .frame(width: 24)
+                                    
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 8) {
+                                            Text(item.name)
+                                                .font(.system(size: 12, weight: .bold))
+                                                .foregroundColor(.white)
+                                            
+                                            Text(item.safety.displayName)
+                                                .font(.system(size: 9, weight: .bold))
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(Color(hex: "8B5CF6").opacity(0.2))
+                                                .foregroundColor(Color(hex: "C4B5FD"))
+                                                .cornerRadius(4)
+                                        }
+                                        
+                                        Text(item.path)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundColor(.white.opacity(0.45))
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        NSWorkspace.shared.selectFile(item.path, inFileViewerRootedAtPath: "")
+                                    }) {
+                                        Image(systemName: "arrow.up.forward.app")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.white.opacity(0.5))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Finder'da Göster")
+                                    
+                                    Text(item.formattedSize)
+                                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                        .foregroundColor(.white)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.04))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                                )
                             }
-                            Spacer()
-                            Text(item.formattedSize)
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .foregroundColor(.white)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
                 }
             }
@@ -977,52 +1053,121 @@ public struct MainView: View {
                     )
                 }
             } else {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Tespit Edilen Hayalet Servisler")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("\(engine.ghostDaemons.count) Ölü Servis Bulundu")
+                            Text("\(engine.ghostDaemons.count) Ölü Servis Bulundu • Arka Planda Pil ve CPU Tüketimini Önleyin")
                                 .font(.system(size: 11))
                                 .foregroundColor(.white.opacity(0.6))
                         }
                         Spacer()
                         
-                        Button("Tümünü Yok Et") {
+                        Button(action: {
                             engine.removeAllGhostDaemons()
                             SoundManager.shared.playCleanFinished()
                             HapticManager.shared.triggerSuccess()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "trash.fill")
+                                Text("Tümünü Yok Et")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "EF4444"), Color(hex: "DC2626")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                            .shadow(color: Color(hex: "EF4444").opacity(0.3), radius: 6, y: 2)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(Color(hex: "EF4444"))
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 16)
                     .padding(.horizontal, 24)
                     
-                    List(engine.ghostDaemons) { ghost in
-                        HStack(spacing: 12) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(Color(hex: "FBBF24"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(ghost.label)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                Text("Hedef dosya silinmiş: \(ghost.missingBinaryPath)")
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(Color(hex: "FB7185"))
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(engine.ghostDaemons) { ghost in
+                                HStack(spacing: 12) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(Color(hex: "FBBF24"))
+                                        .frame(width: 28)
+                                    
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(ghost.label)
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundColor(.white)
+                                        
+                                        HStack(spacing: 4) {
+                                            Text("Ölü Hedef:")
+                                                .font(.system(size: 10, weight: .semibold))
+                                                .foregroundColor(Color(hex: "FB7185"))
+                                            Text(ghost.missingBinaryPath)
+                                                .font(.system(size: 10, design: .monospaced))
+                                                .foregroundColor(Color(hex: "FDA4AF"))
+                                                .lineLimit(1)
+                                                .truncationMode(.middle)
+                                        }
+                                        
+                                        Text(ghost.plistPath)
+                                            .font(.system(size: 9.5, design: .monospaced))
+                                            .foregroundColor(.white.opacity(0.4))
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        NSWorkspace.shared.selectFile(ghost.plistPath, inFileViewerRootedAtPath: "")
+                                    }) {
+                                        Image(systemName: "arrow.up.forward.app")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.white.opacity(0.5))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Finder'da Göster")
+                                    
+                                    Button(action: {
+                                        engine.removeGhostDaemon(ghost: ghost)
+                                        SoundManager.shared.playCardComplete()
+                                        HapticManager.shared.triggerSuccess()
+                                    }) {
+                                        Text("Yok Et")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(Color(hex: "EF4444"))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 5)
+                                            .background(Color(hex: "EF4444").opacity(0.15))
+                                            .cornerRadius(6)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(Color(hex: "EF4444").opacity(0.3), lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.04))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color(hex: "EF4444").opacity(0.15), lineWidth: 1)
+                                )
                             }
-                            Spacer()
-                            Button("Servisi Yok Et") {
-                                engine.removeGhostDaemon(ghost: ghost)
-                                SoundManager.shared.playCardComplete()
-                                HapticManager.shared.triggerSuccess()
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
                         }
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
                 }
             }
@@ -1084,18 +1229,45 @@ public struct MainView: View {
                     )
                 }
             } else {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Budanabilecek Evrensel Uygulamalar")
                                 .font(.system(size: 16, weight: .bold))
                                 .foregroundColor(.white)
                             let totalLipo = engine.lipoCandidates.reduce(0) { $0 + $1.reclaimableSize }
-                            Text("+\(ByteCountFormatter.string(fromByteCount: totalLipo, countStyle: .file)) Alan Açılabilir")
+                            Text("+\(ByteCountFormatter.string(fromByteCount: totalLipo, countStyle: .file)) Alan Açılabilir • M-Serisi Saf ARM64 Hızı")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(Color(hex: "34D399"))
                         }
                         Spacer()
+                        
+                        Button(action: {
+                            Task {
+                                _ = await engine.thinAllLipoItems()
+                                SoundManager.shared.playCleanFinished()
+                                HapticManager.shared.triggerSuccess()
+                            }
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "scissors")
+                                Text("Tümünü Güvenle Buda")
+                            }
+                            .font(.system(size: 12, weight: .semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color(hex: "F43F5E"), Color(hex: "E11D48")],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .foregroundColor(.white)
+                            .cornerRadius(8)
+                            .shadow(color: Color(hex: "F43F5E").opacity(0.3), radius: 6, y: 2)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.top, 16)
                     .padding(.horizontal, 24)
@@ -1107,10 +1279,10 @@ public struct MainView: View {
                             .foregroundColor(Color(hex: "38BDF8"))
                         
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Apple Gatekeeper & Kod İmzası Bütünlüğü")
+                            Text("Apple Gatekeeper & Kod İmzası Bütünlüğü Korumalı")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundColor(.white)
-                            Text("macOS güvenlik mimarisi gereği, geliştirici sertifikasıyla imzalanmış 3. parti uygulamaların ikili dilimlerini silmek kod imzasını bozar. İhyâ, sistem kararlılığını riske atmamak adına güvenli mimari röntgeni sunar.")
+                            Text("İhyâ, Intel (x86_64) kod dilimini budadıktan sonra uygulamayı yerel ad-hoc sertifikayla otomatik olarak yeniden imzalar. Böylece macOS Gatekeeper çökmesi yaşanmaz ve uygulamanız saf Apple Silicon performansı kazanır.")
                                 .font(.system(size: 10))
                                 .foregroundColor(.white.opacity(0.65))
                                 .lineSpacing(2)
@@ -1125,29 +1297,88 @@ public struct MainView: View {
                     )
                     .padding(.horizontal, 24)
                     
-                    List(engine.lipoCandidates) { item in
-                        HStack(spacing: 12) {
-                            Image(systemName: "app.dashed")
-                                .foregroundColor(Color(hex: "38BDF8"))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.appName)
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.white)
-                                Text(item.appPath)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.white.opacity(0.5))
-                            }
-                            Spacer()
-                            VStack(alignment: .trailing, spacing: 2) {
-                                Text("+\(item.formattedReclaimable)")
-                                    .font(.system(size: 11, weight: .bold))
-                                    .foregroundColor(Color(hex: "34D399"))
-                                Text("Kazanılabilir")
-                                    .font(.system(size: 9))
-                                    .foregroundColor(.white.opacity(0.5))
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(engine.lipoCandidates) { item in
+                                HStack(spacing: 14) {
+                                    // Gerçek Uygulama İkonu (Native macOS App Icon)
+                                    Image(nsImage: NSWorkspace.shared.icon(forFile: item.appPath))
+                                        .resizable()
+                                        .frame(width: 36, height: 36)
+                                        .cornerRadius(8)
+                                    
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        HStack(spacing: 8) {
+                                            Text(item.appName)
+                                                .font(.system(size: 13, weight: .bold))
+                                                .foregroundColor(.white)
+                                            
+                                            Text("Universal 2")
+                                                .font(.system(size: 9, weight: .bold))
+                                                .padding(.horizontal, 5)
+                                                .padding(.vertical, 2)
+                                                .background(Color(hex: "38BDF8").opacity(0.2))
+                                                .foregroundColor(Color(hex: "7DD3FC"))
+                                                .cornerRadius(4)
+                                        }
+                                        
+                                        Text(item.appPath)
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundColor(.white.opacity(0.45))
+                                            .lineLimit(1)
+                                            .truncationMode(.middle)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .trailing, spacing: 2) {
+                                        Text("+\(item.formattedReclaimable)")
+                                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                            .foregroundColor(Color(hex: "34D399"))
+                                        Text("Intel Tasarrufu")
+                                            .font(.system(size: 9))
+                                            .foregroundColor(.white.opacity(0.45))
+                                    }
+                                    
+                                    Button(action: {
+                                        NSWorkspace.shared.selectFile(item.appPath, inFileViewerRootedAtPath: "")
+                                    }) {
+                                        Image(systemName: "arrow.up.forward.app")
+                                            .font(.system(size: 11))
+                                            .foregroundColor(.white.opacity(0.5))
+                                    }
+                                    .buttonStyle(.plain)
+                                    .help("Finder'da Göster")
+                                    
+                                    Button(action: {
+                                        Task {
+                                            _ = await engine.thinLipoItem(item: item)
+                                            SoundManager.shared.playCleanFinished()
+                                            HapticManager.shared.triggerSuccess()
+                                        }
+                                    }) {
+                                        Text("Buda")
+                                            .font(.system(size: 11, weight: .bold))
+                                            .foregroundColor(.white)
+                                            .padding(.horizontal, 12)
+                                            .padding(.vertical, 6)
+                                            .background(Color(hex: "F43F5E"))
+                                            .cornerRadius(6)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .background(Color.white.opacity(0.04))
+                                .cornerRadius(10)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                                )
                             }
                         }
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 24)
                     }
                 }
             }

@@ -43,6 +43,10 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
         self.categories = coreTypes.map { CategorySummary(category: $0) }
     }
     
+    public func resetCleanedState() {
+        self.hasCleaned = false
+    }
+    
     public func runFullScan() async {
         await MainActor.run {
             self.isScanning = true
@@ -258,6 +262,29 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     public func removeGhostDaemon(ghost: GhostDaemonItem) {
         try? FileManager.default.removeItem(atPath: ghost.plistPath)
         ghostDaemons.removeAll(where: { $0.id == ghost.id })
+    }
+    
+    public func thinLipoItem(item: LipoItem) async -> (success: Bool, freedBytes: Int64) {
+        let result = await AppLipoEngine.shared.thinAppBinary(item: item)
+        if result.success {
+            await MainActor.run {
+                self.lipoCandidates.removeAll(where: { $0.id == item.id })
+                self.totalReclaimableBytes = max(0, self.totalReclaimableBytes - result.freedBytes)
+            }
+        }
+        return result
+    }
+    
+    public func thinAllLipoItems() async -> Int64 {
+        var totalFreed: Int64 = 0
+        let items = lipoCandidates
+        for item in items {
+            let res = await thinLipoItem(item: item)
+            if res.success {
+                totalFreed += res.freedBytes
+            }
+        }
+        return totalFreed
     }
     
     public func toggleItemSelection(categoryType: CleanCategoryType, itemId: String) {

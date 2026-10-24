@@ -33,7 +33,7 @@ public struct MenuBarIslandView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
                 
-                Text("v1.2.1")
+                Text("v1.3.0")
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
                 

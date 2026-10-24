@@ -74,4 +74,68 @@ public final class AppLipoEngine: Sendable {
         
         return (true, Int64(fileSize))
     }
+    
+    /// Evrensel (Universal) ikili dosyadan x86_64 mimarisini siler, sadece Apple Silicon (arm64) kodunu tutar
+    public func thinAppBinary(item: LipoItem) async -> (success: Bool, freedBytes: Int64) {
+        guard isAppleSilicon else { return (false, 0) }
+        
+        return await Task.detached(priority: .userInitiated) {
+            let fileManager = FileManager.default
+            let binaryURL = URL(fileURLWithPath: item.binaryPath)
+            let tempOutputURL = binaryURL.deletingLastPathComponent().appendingPathComponent(binaryURL.lastPathComponent + ".thin_arm64")
+            let backupURL = binaryURL.deletingLastPathComponent().appendingPathComponent(binaryURL.lastPathComponent + ".orig_fat")
+            
+            // 1. lipo -thin arm64 <binaryPath> -output <tempOutput>
+            let lipoProcess = Process()
+            lipoProcess.executableURL = URL(fileURLWithPath: "/usr/bin/lipo")
+            lipoProcess.arguments = [item.binaryPath, "-thin", "arm64", "-output", tempOutputURL.path]
+            
+            do {
+                try lipoProcess.run()
+                lipoProcess.waitUntilExit()
+            } catch {
+                return (false, 0)
+            }
+            
+            guard lipoProcess.terminationStatus == 0, fileManager.fileExists(atPath: tempOutputURL.path) else {
+                try? fileManager.removeItem(at: tempOutputURL)
+                return (false, 0)
+            }
+            
+            // İzinleri orijinal ikiliyle eşitle
+            if let originalAttrs = try? fileManager.attributesOfItem(atPath: item.binaryPath),
+               let permissions = originalAttrs[.posixPermissions] as? NSNumber {
+                try? fileManager.setAttributes([.posixPermissions: permissions], ofItemAtPath: tempOutputURL.path)
+            }
+            
+            // 2. Orijinal dosyayı güvenle değiştir
+            do {
+                try? fileManager.removeItem(at: backupURL)
+                try fileManager.moveItem(at: binaryURL, to: backupURL)
+                try fileManager.moveItem(at: tempOutputURL, to: binaryURL)
+                try? fileManager.removeItem(at: backupURL)
+            } catch {
+                try? fileManager.removeItem(at: binaryURL)
+                try? fileManager.moveItem(at: backupURL, to: binaryURL)
+                try? fileManager.removeItem(at: tempOutputURL)
+                return (false, 0)
+            }
+            
+            // 3. Ad-hoc yeniden imzalama (Gatekeeper & Kod İmzası Bütünlüğü)
+            let codesignProcess = Process()
+            codesignProcess.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
+            codesignProcess.arguments = ["--force", "--deep", "--sign", "-", item.appPath]
+            try? codesignProcess.run()
+            codesignProcess.waitUntilExit()
+            
+            // 4. Yeni boyutu kontrol et
+            if let newAttrs = try? fileManager.attributesOfItem(atPath: item.binaryPath),
+               let newSize = newAttrs[.size] as? Int64 {
+                let freed = max(0, item.currentSize - newSize)
+                return (true, freed > 0 ? freed : item.reclaimableSize)
+            }
+            
+            return (true, item.reclaimableSize)
+        }.value
+    }
 }

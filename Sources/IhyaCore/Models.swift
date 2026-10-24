@@ -53,6 +53,15 @@ public enum SafetyLevel: String, Sendable {
     case caution = "caution"
     case developer = "developer"
     case protected = "protected"
+    
+    public var displayName: String {
+        switch self {
+        case .safe: return "Güvenli"
+        case .caution: return "Dikkat"
+        case .developer: return "Geliştirici"
+        case .protected: return "Korumalı"
+        }
+    }
 }
 
 public struct CleanItem: Identifiable, Sendable {

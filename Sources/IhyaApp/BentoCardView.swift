@@ -88,7 +88,16 @@ public struct BentoCardView: View {
                         
                         Spacer()
                         
-                        if isCleaned {
+                        if isActive {
+                            HStack(spacing: 5) {
+                                ProgressView()
+                                    .scaleEffect(0.55)
+                                    .frame(width: 12, height: 12)
+                                Text("Taranıyor...")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Color(hex: "06B6D4"))
+                            }
+                        } else if isCleaned {
                             HStack(spacing: 5) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(Color(hex: "10B981"))
@@ -105,15 +114,6 @@ public struct BentoCardView: View {
                                 Text("Bulundu")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(Color(hex: "38BDF8"))
-                            }
-                        } else if isActive {
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(Color(hex: "06B6D4"))
-                                    .frame(width: 6, height: 6)
-                                Text("Taranıyor...")
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .foregroundColor(Color(hex: "06B6D4"))
                             }
                         }
                     }
