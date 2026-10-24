@@ -21,6 +21,7 @@ public struct DuplicateFinderView: View {
     @State private var selectedFilter: FileCategoryType = .all
     @State private var isShowingFolderReport: Bool = false
     @State private var selectedFolderFilter: String? = nil
+    @State private var protectedFolderPaths: Set<String> = []
     @State private var isTargetedForDrop: Bool = false
     @State private var selectedFileForPreview: DuplicateFile? = nil
     @State private var activeRetentionRule: RetentionRule = .keepOldest
@@ -572,16 +573,33 @@ public struct DuplicateFinderView: View {
                 
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                     ForEach(folderSummaries) { summary in
+                        let isProtected = protectedFolderPaths.contains(summary.folderPath)
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
-                                Image(systemName: "folder.fill")
-                                    .foregroundColor(Color(hex: "38BDF8"))
+                                Image(systemName: isProtected ? "checkmark.shield.fill" : "folder.fill")
+                                    .foregroundColor(isProtected ? Color(hex: "10B981") : Color(hex: "38BDF8"))
                                     .font(.system(size: 16))
                                 
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(summary.folderName)
-                                        .font(.system(size: 13, weight: .bold))
-                                        .foregroundColor(.white)
+                                    HStack(spacing: 6) {
+                                        Text(summary.folderName)
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.white)
+                                        
+                                        if isProtected {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "shield.fill")
+                                                    .font(.system(size: 8))
+                                                Text("KORUNDU")
+                                                    .font(.system(size: 8, weight: .black))
+                                            }
+                                            .padding(.horizontal, 5)
+                                            .padding(.vertical, 1.5)
+                                            .background(Color(hex: "10B981").opacity(0.25))
+                                            .foregroundColor(Color(hex: "34D399"))
+                                            .cornerRadius(3)
+                                        }
+                                    }
                                     Text(summary.folderPath)
                                         .font(.system(size: 9, design: .monospaced))
                                         .foregroundColor(.white.opacity(0.4))
@@ -597,41 +615,58 @@ public struct DuplicateFinderView: View {
                                 Spacer()
                                 Text(summary.formattedSize)
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .foregroundColor(Color(hex: "34D399"))
+                                    .foregroundColor(isProtected ? Color(hex: "10B981") : Color(hex: "34D399"))
                             }
                             
                             HStack(spacing: 8) {
-                                Button("Bu Klasörü Koru") {
-                                    applyFolderRule(keepFolderPath: summary.folderPath)
-                                    isShowingFolderReport = false
+                                Button(action: {
+                                    if isProtected {
+                                        protectedFolderPaths.remove(summary.folderPath)
+                                    } else {
+                                        protectedFolderPaths.insert(summary.folderPath)
+                                        applyFolderRule(keepFolderPath: summary.folderPath)
+                                    }
+                                    // Sayfadan atma: Kullanıcı Klasörler sayfasında kalarak diğer klasörleri de koruyabilir
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: isProtected ? "checkmark.shield.fill" : "shield.lefthalf.filled")
+                                            .font(.system(size: 10))
+                                        Text(isProtected ? "KORUNDU ✓" : "Bu Klasörü Koru")
+                                            .font(.system(size: 10, weight: .semibold))
+                                    }
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 4.5)
+                                    .background(isProtected ? Color(hex: "10B981").opacity(0.35) : Color(hex: "10B981").opacity(0.2))
+                                    .foregroundColor(isProtected ? .white : Color(hex: "34D399"))
+                                    .cornerRadius(5)
                                 }
-                                .font(.system(size: 10, weight: .semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color(hex: "10B981").opacity(0.2))
-                                .foregroundColor(Color(hex: "34D399"))
-                                .cornerRadius(5)
                                 .buttonStyle(.plain)
                                 
-                                Button("Çiftleri Listele") {
+                                Button(action: {
                                     selectedFolderFilter = summary.folderPath
                                     isShowingFolderReport = false
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "list.bullet")
+                                            .font(.system(size: 10))
+                                        Text("Çiftleri Listele")
+                                            .font(.system(size: 10, weight: .semibold))
+                                    }
+                                    .padding(.horizontal, 9)
+                                    .padding(.vertical, 4.5)
+                                    .background(Color.white.opacity(0.08))
+                                    .foregroundColor(.white)
+                                    .cornerRadius(5)
                                 }
-                                .font(.system(size: 10, weight: .semibold))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.white.opacity(0.08))
-                                .foregroundColor(.white)
-                                .cornerRadius(5)
                                 .buttonStyle(.plain)
                             }
                         }
                         .padding(12)
-                        .background(Color.white.opacity(0.04))
+                        .background(isProtected ? Color(hex: "10B981").opacity(0.08) : Color.white.opacity(0.04))
                         .cornerRadius(10)
                         .overlay(
                             RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                                .stroke(isProtected ? Color(hex: "10B981").opacity(0.4) : Color.white.opacity(0.07), lineWidth: 1)
                         )
                     }
                 }
@@ -1130,17 +1165,21 @@ struct DuplicateFileRow: View {
     var body: some View {
         HStack(spacing: 10) {
             if file.isOriginal {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundColor(Color(hex: "10B981"))
-                    .font(.system(size: 14))
-                    .help("Bu dosya grubun orijinal nüshasıdır")
+                HStack(spacing: 3) {
+                    Image(systemName: "shield.fill")
+                        .foregroundColor(Color(hex: "10B981"))
+                        .font(.system(size: 13))
+                }
+                .frame(width: 18, height: 18)
+                .help("Bu dosya korunan orijinal nüshadır")
             } else {
                 Button(action: onToggle) {
                     Image(systemName: file.isSelectedForDeletion ? "checkmark.circle.fill" : "circle")
                         .foregroundColor(file.isSelectedForDeletion ? Color(hex: "F43F5E") : .white.opacity(0.4))
-                        .font(.system(size: 14))
+                        .font(.system(size: 15))
                 }
                 .buttonStyle(.plain)
+                .help(file.isSelectedForDeletion ? "Silinmek üzere seçildi" : "Silmek için seçin")
             }
             
             VStack(alignment: .leading, spacing: 2) {
@@ -1150,13 +1189,15 @@ struct DuplicateFileRow: View {
                         .foregroundColor(.white)
                     
                     if file.isOriginal {
-                        Text("Orijinal")
-                            .font(.system(size: 8, weight: .black))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color(hex: "10B981").opacity(0.2))
-                            .foregroundColor(Color(hex: "34D399"))
-                            .cornerRadius(3)
+                        HStack(spacing: 3) {
+                            Text("Orijinal • Korunuyor")
+                                .font(.system(size: 8, weight: .black))
+                        }
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1.5)
+                        .background(Color(hex: "10B981").opacity(0.2))
+                        .foregroundColor(Color(hex: "34D399"))
+                        .cornerRadius(3)
                     }
                 }
                 

@@ -120,14 +120,14 @@ public struct BentoCardView: View {
                     
                     Spacer(minLength: 4)
                     
-                    // Aktif Tarama Canlı Listesi (Hero Card Görünümü)
+                    // Orta Bölüm: Zengin Detay Satırları (Her Zaman Görünür)
                     if let breakdown = itemsBreakdown, !breakdown.isEmpty {
-                        VStack(spacing: 6) {
-                            ForEach(breakdown.prefix(4), id: \.name) { item in
-                                HStack {
-                                    Image(systemName: "doc.text.fill")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.white.opacity(0.5))
+                        VStack(spacing: 5) {
+                            ForEach(Array(breakdown.prefix(3).enumerated()), id: \.offset) { _, item in
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.3))
+                                        .frame(width: 3.5, height: 3.5)
                                     Text(item.name)
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundColor(.white.opacity(0.85))
@@ -135,64 +135,70 @@ public struct BentoCardView: View {
                                     Spacer()
                                     Text(item.size)
                                         .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                        .foregroundColor(.white.opacity(0.6))
+                                        .foregroundColor(Color(hex: "34D399").opacity(0.9))
                                 }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3.5)
+                                .background(Color.white.opacity(0.035))
+                                .cornerRadius(6)
                             }
                         }
-                        .padding(.vertical, 4)
-                    } else {
-                        // Alt Bölüm: Büyük Metrik Değeri & İncele Butonu
-                        HStack(alignment: .bottom) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(subtitle)
-                                    .font(.system(size: 22, weight: .bold, design: .rounded))
-                                    .foregroundColor(.white)
-                                    .lineLimit(1)
-                                    .minimumScaleFactor(0.85)
-                                
-                                if !statusText.isEmpty {
-                                    Text(statusText)
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(.white.opacity(0.55))
-                                        .lineLimit(1)
-                                }
-                            }
-                            
-                            Spacer()
-                            
-                            if (isCompleted || isCleaned) && reviewButtonTitle != nil {
-                                HStack(spacing: 4) {
-                                    Text(reviewButtonTitle!)
-                                        .font(.system(size: 10, weight: .bold))
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 8, weight: .bold))
-                                }
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 5)
-                                .background(Color.white.opacity(isHovered ? 0.22 : 0.12))
+                        .padding(.vertical, 2)
+                    }
+                    
+                    Spacer(minLength: 4)
+                    
+                    // Alt Bölüm: Büyük Metrik Değeri & İncele Butonu
+                    HStack(alignment: .bottom) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(subtitle)
+                                .font(.system(size: 20, weight: .bold, design: .rounded))
                                 .foregroundColor(.white)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                                )
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                            
+                            if !statusText.isEmpty {
+                                Text(statusText)
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.55))
+                                    .lineLimit(1)
                             }
+                        }
+                        
+                        Spacer()
+                        
+                        if (isCompleted || isCleaned) && reviewButtonTitle != nil {
+                            HStack(spacing: 4) {
+                                Text(reviewButtonTitle!)
+                                    .font(.system(size: 10, weight: .bold))
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 8, weight: .bold))
+                            }
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 5)
+                            .background(Color.white.opacity(isHovered ? 0.22 : 0.12))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
                         }
                     }
                 }
                 .padding(18)
                 
-                // Sağ Üst/Orta 3D Cam Mücevher
+                // Sağ Üst Cam Mücevher
                 VStack {
                     HStack {
                         Spacer()
                         GlassJewelEmblem(
                             style: emblemStyle,
                             iconName: emblemIcon,
-                            size: itemsBreakdown != nil ? 72 : 56
+                            size: 46
                         )
-                        .padding(.top, 16)
-                        .padding(.trailing, 16)
+                        .padding(.top, 14)
+                        .padding(.trailing, 14)
                     }
                     Spacer()
                 }
