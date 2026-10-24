@@ -30,4 +30,11 @@ public final class SoundManager: Sendable {
             sound.play()
         }
     }
+    
+    @MainActor
+    public func playError() {
+        if let sound = NSSound(named: "Basso") {
+            sound.play()
+        }
+    }
 }

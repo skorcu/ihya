@@ -25,4 +25,12 @@ public final class HapticManager: Sendable {
     public func generateSuccessFeedback() {
         triggerSuccess()
     }
+    
+    @MainActor
+    public func triggerWarning() {
+        NSHapticFeedbackManager.defaultPerformer.perform(
+            .generic,
+            performanceTime: .now
+        )
+    }
 }

@@ -15,7 +15,7 @@ public struct AppRemnantItem: Identifiable, Sendable {
         path: String,
         size: Int64,
         categoryName: String,
-        isSelected: Bool = true
+        isSelected: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -90,7 +90,7 @@ public struct OrphanedRemnantGroup: Identifiable, Sendable {
         name: String,
         signature: String,
         items: [AppRemnantItem],
-        isSelected: Bool = true
+        isSelected: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -138,23 +138,56 @@ public final class AppUninstallerEngine: Sendable {
                 for item in contents where item.hasSuffix(".app") {
                     let appPath = (dir as NSString).appendingPathComponent(item)
                     let rawName = (item as NSString).deletingPathExtension
+                    let appURL = URL(fileURLWithPath: appPath)
                     
-                    let plistPath = (appPath as NSString).appendingPathComponent("Contents/Info.plist")
                     var bundleId = ""
                     var appVersion = "1.0"
                     var displayName = rawName
                     
-                    if let dict = NSDictionary(contentsOfFile: plistPath) {
-                        bundleId = (dict["CFBundleIdentifier"] as? String) ?? ""
-                        if let ver = dict["CFBundleShortVersionString"] as? String {
+                    // 1. Resmi Apple Bundle API'si (Hem macOS hem iOS/iPadOS Wrapper paketlerini çözer)
+                    if let bundle = Bundle(url: appURL) {
+                        bundleId = bundle.bundleIdentifier ?? ""
+                        if let ver = bundle.infoDictionary?["CFBundleShortVersionString"] as? String {
                             appVersion = ver
-                        } else if let ver = dict["CFBundleVersion"] as? String {
+                        } else if let ver = bundle.infoDictionary?["CFBundleVersion"] as? String {
                             appVersion = ver
                         }
-                        if let name = dict["CFBundleDisplayName"] as? String {
+                        if let name = bundle.infoDictionary?["CFBundleDisplayName"] as? String {
                             displayName = name
-                        } else if let name = dict["CFBundleName"] as? String {
+                        } else if let name = bundle.infoDictionary?["CFBundleName"] as? String {
                             displayName = name
+                        }
+                    }
+                    
+                    // 2. Yedek: Contents/Info.plist okuma
+                    if bundleId.isEmpty {
+                        let plistPath = (appPath as NSString).appendingPathComponent("Contents/Info.plist")
+                        if let dict = NSDictionary(contentsOfFile: plistPath) {
+                            bundleId = (dict["CFBundleIdentifier"] as? String) ?? ""
+                            if let ver = dict["CFBundleShortVersionString"] as? String {
+                                appVersion = ver
+                            } else if let ver = dict["CFBundleVersion"] as? String {
+                                appVersion = ver
+                            }
+                            if let name = dict["CFBundleDisplayName"] as? String {
+                                displayName = name
+                            } else if let name = dict["CFBundleName"] as? String {
+                                displayName = name
+                            }
+                        }
+                    }
+                    
+                    // 3. Yedek: iOS Wrapper/App.app/Info.plist
+                    if bundleId.isEmpty {
+                        let wrapperPlist = (appPath as NSString).appendingPathComponent("Wrapper/App.app/Info.plist")
+                        if let dict = NSDictionary(contentsOfFile: wrapperPlist) {
+                            bundleId = (dict["CFBundleIdentifier"] as? String) ?? ""
+                            if let ver = dict["CFBundleShortVersionString"] as? String {
+                                appVersion = ver
+                            }
+                            if let name = dict["CFBundleDisplayName"] as? String {
+                                displayName = name
+                            }
                         }
                     }
                     
@@ -206,8 +239,15 @@ public final class AppUninstallerEngine: Sendable {
         let lowerName = appName.lowercased()
         let lowerBundle = bundleId.lowercased()
         
+        // Bundle parçalarından belirleyici kök adı çıkar (Örn: com.sarkacadam.app -> sarkacadam)
+        let bundleParts = lowerBundle.split(separator: ".").map(String.init)
+        let domainKeyword = bundleParts.first(where: {
+            $0.count >= 5 && !["com", "org", "net", "app", "macos", "apple", "desktop", "unknown"].contains($0)
+        })
+        
         let targets: [(subPath: String, label: String, isFolderDirectMatch: Bool)] = [
             ("Library/Application Support", "Application Support", true),
+            ("Library/Application Scripts", "Uygulama Betikleri (Scripts)", true),
             ("Library/Caches", "Önbellek (Caches)", true),
             ("Library/Containers", "Kapsayıcı (Containers)", true),
             ("Library/Saved Application State", "Kayıtlı Durumlar", true),
@@ -232,7 +272,8 @@ public final class AppUninstallerEngine: Sendable {
                               lowerFolder == lowerName ||
                               lowerFolder.hasPrefix(lowerBundle) ||
                               lowerFolder.contains(lowerBundle) ||
-                              (lowerName.count >= 4 && lowerFolder.hasPrefix(lowerName))
+                              (lowerName.count >= 4 && lowerFolder.hasPrefix(lowerName)) ||
+                              (domainKeyword != nil && lowerFolder.contains(domainKeyword!))
                 
                 if isMatch {
                     let itemPath = (fullTargetDir as NSString).appendingPathComponent(folderName)
@@ -243,7 +284,7 @@ public final class AppUninstallerEngine: Sendable {
                             path: itemPath,
                             size: size,
                             categoryName: target.label,
-                            isSelected: true
+                            isSelected: false
                         ))
                     }
                 }
@@ -255,7 +296,10 @@ public final class AppUninstallerEngine: Sendable {
         if let plistContents = try? FileManager.default.contentsOfDirectory(atPath: prefsDir) {
             for plistName in plistContents where plistName.hasSuffix(".plist") {
                 let lowerPlist = plistName.lowercased()
-                if lowerPlist.contains(lowerBundle) || (lowerName.count >= 4 && lowerPlist.contains(lowerName)) {
+                let isMatch = lowerPlist.contains(lowerBundle) ||
+                              (lowerName.count >= 4 && lowerPlist.contains(lowerName)) ||
+                              (domainKeyword != nil && lowerPlist.contains(domainKeyword!))
+                if isMatch {
                     let plistPath = (prefsDir as NSString).appendingPathComponent(plistName)
                     let size = FastScanner.shared.getPathSize(path: plistPath)
                     remnants.append(AppRemnantItem(
@@ -263,7 +307,7 @@ public final class AppUninstallerEngine: Sendable {
                         path: plistPath,
                         size: max(size, 1024),
                         categoryName: "Tercihler (Preferences)",
-                        isSelected: true
+                        isSelected: false
                     ))
                 }
             }
@@ -279,6 +323,7 @@ public final class AppUninstallerEngine: Sendable {
         
         let targetDirs = [
             ("Library/Application Support", "Application Support"),
+            ("Library/Application Scripts", "Uygulama Betikleri"),
             ("Library/Caches", "Önbellek"),
             ("Library/Containers", "Kapsayıcı"),
             ("Library/Saved Application State", "Kayıtlı Durum")
@@ -308,7 +353,7 @@ public final class AppUninstallerEngine: Sendable {
                             path: path,
                             size: size,
                             categoryName: label,
-                            isSelected: true
+                            isSelected: false
                         )
                         groups[baseKey, default: []].append(item)
                     }
@@ -321,53 +366,102 @@ public final class AppUninstallerEngine: Sendable {
                 name: key,
                 signature: key,
                 items: items,
-                isSelected: true
+                isSelected: false
             )
         }.sorted { $0.totalSize > $1.totalSize }
     }
     
+    public struct AppTrashResult: Sendable {
+        public let reclaimedSize: Int64
+        public let trashedCount: Int
+        public let failedPaths: [String]
+        
+        public init(reclaimedSize: Int64, trashedCount: Int, failedPaths: [String]) {
+            self.reclaimedSize = reclaimedSize
+            self.trashedCount = trashedCount
+            self.failedPaths = failedPaths
+        }
+    }
+    
+    /// Güvenli ve doğrulamalı Çöp Sepeti'ne taşıma metodu:
+    /// 1. Standart FileManager.default.trashItem dener.
+    /// 2. Yetki engeli durumunda (örneğin /Applications içindeki root izinli uygulamalar),
+    ///    macOS Finder üzerinden (delete POSIX file) dener. Finder bu aşamada kullanıcıdan Touch ID / Parola ister.
+    /// 3. Dosyanın diskten gerçekten yok olduğunu fiziki olarak FileManager.default.fileExists ile teyit eder.
+    public func trashItemSafely(atPath path: String) -> Bool {
+        let url = URL(fileURLWithPath: path)
+        
+        // Zaten yoksa başarı say
+        guard FileManager.default.fileExists(atPath: path) else {
+            return true
+        }
+        
+        // 1. Standart FileManager trashItem denemesi
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            if !FileManager.default.fileExists(atPath: path) {
+                return true
+            }
+        } catch {
+            // İzin hatası (Error 513) veya kısıtlı alan durumunda Finder rotasına geç
+        }
+        
+        // 2. Finder AppleScript rotası (Yönetici yetkisi / Touch ID gerektiren sistem paketleri)
+        let escapedPath = path.replacingOccurrences(of: "\\", with: "\\\\")
+                              .replacingOccurrences(of: "\"", with: "\\\"")
+        let scriptSource = "tell application \"Finder\" to delete (POSIX file \"\(escapedPath)\")"
+        if let script = NSAppleScript(source: scriptSource) {
+            var errorInfo: NSDictionary?
+            _ = script.executeAndReturnError(&errorInfo)
+        }
+        
+        // 3. Kesin varlık doğrulaması
+        return !FileManager.default.fileExists(atPath: path)
+    }
+    
     /// Seçili uygulama ve kırıntılarını GÜVENLE Çöp Sepeti'ne taşır (Geri alınabilir)
-    public func trashApp(app: InstalledAppItem, trashBundle: Bool) -> (reclaimedSize: Int64, trashedCount: Int) {
+    public func trashApp(app: InstalledAppItem, trashBundle: Bool) -> AppTrashResult {
         var reclaimed: Int64 = 0
         var count = 0
+        var failed: [String] = []
         
         // 1. Kütüphane kırıntılarını çöpe taşı
         for remnant in app.remnants where remnant.isSelected {
-            let url = URL(fileURLWithPath: remnant.path)
-            do {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            if trashItemSafely(atPath: remnant.path) {
                 reclaimed += remnant.size
                 count += 1
-            } catch {
-                // Hata durumunda sessizce devam et
+            } else {
+                failed.append(remnant.path)
             }
         }
         
         // 2. Uygulama ikilisini (.app) çöpe taşı (Eğer sistem uygulaması değilse ve seçilmişse)
         if trashBundle && !app.isSystemApp && app.isSelected {
-            let appURL = URL(fileURLWithPath: app.bundlePath)
-            do {
-                try FileManager.default.trashItem(at: appURL, resultingItemURL: nil)
+            if trashItemSafely(atPath: app.bundlePath) {
                 reclaimed += app.appSize
                 count += 1
-            } catch {
-                // Hata
+            } else {
+                failed.append(app.bundlePath)
             }
         }
         
-        return (reclaimed, count)
+        return AppTrashResult(reclaimedSize: reclaimed, trashedCount: count, failedPaths: failed)
     }
     
     /// Yetim kalıntı grubunu Çöp Sepeti'ne taşır
-    public func trashOrphanGroup(group: OrphanedRemnantGroup) -> Int64 {
+    public func trashOrphanGroup(group: OrphanedRemnantGroup) -> AppTrashResult {
         var reclaimed: Int64 = 0
+        var count = 0
+        var failed: [String] = []
+        
         for item in group.items where item.isSelected {
-            let url = URL(fileURLWithPath: item.path)
-            do {
-                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            if trashItemSafely(atPath: item.path) {
                 reclaimed += item.size
-            } catch {}
+                count += 1
+            } else {
+                failed.append(item.path)
+            }
         }
-        return reclaimed
+        return AppTrashResult(reclaimedSize: reclaimed, trashedCount: count, failedPaths: failed)
     }
 }

@@ -19,6 +19,7 @@ public struct AppUninstallerView: View {
     @State private var selectedFilter: AppFilterType = .all
     @State private var expandedAppIds: Set<String> = []
     @State private var showConfirmDialog: Bool = false
+    @State private var isProcessingTrash: Bool = false
     @State private var statusToast: String? = nil
     
     public init() {}
@@ -44,14 +45,14 @@ public struct AppUninstallerView: View {
     
     private var totalSelectedReclaimable: Int64 {
         if selectedFilter == .orphans {
-            return filteredOrphans.filter { $0.isSelected }.reduce(0) { $0 + $1.totalSize }
+            return orphanedGroups.filter { $0.isSelected }.reduce(0) { $0 + $1.totalSize }
         } else {
-            return filteredApps.reduce(0) { $0 + $1.selectedReclaimableSize }
+            return installedApps.reduce(0) { $0 + $1.selectedReclaimableSize }
         }
     }
     
     private var selectedAppsCount: Int {
-        filteredApps.filter { $0.isSelected }.count
+        installedApps.filter { $0.isSelected }.count
     }
     
     public var body: some View {
@@ -63,6 +64,34 @@ public struct AppUninstallerView: View {
             } else {
                 // Sonuçlar ve Üst Filtre Çubuğu
                 topControlToolbar
+                
+                if let toast = statusToast {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .foregroundColor(Color(hex: "38BDF8"))
+                            .font(.system(size: 12))
+                        Text(toast)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white)
+                        Spacer()
+                        Button(action: { statusToast = nil }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 10))
+                                .foregroundColor(.white.opacity(0.6))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.white.opacity(0.08))
+                    .cornerRadius(8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                }
                 
                 // Ana Liste
                 ScrollView {
@@ -276,10 +305,18 @@ public struct AppUninstallerView: View {
                 showConfirmDialog = true
             }) {
                 HStack(spacing: 8) {
-                    Image(systemName: "trash.fill")
-                        .font(.system(size: 12))
-                    Text(selectedFilter == .orphans ? "Seçili Artıkları Çöpe Taşı" : "Seçilenleri Çöp Kutusuna Taşı")
-                        .font(.system(size: 12, weight: .bold))
+                    if isProcessingTrash {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .frame(width: 14, height: 14)
+                        Text("Çöp Sepeti'ne Taşınıyor...")
+                            .font(.system(size: 12, weight: .bold))
+                    } else {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 12))
+                        Text(selectedFilter == .orphans ? "Seçili Artıkları Çöpe Taşı" : "Seçilenleri Çöp Kutusuna Taşı")
+                            .font(.system(size: 12, weight: .bold))
+                    }
                 }
                 .foregroundColor(.white)
                 .padding(.horizontal, 18)
@@ -295,7 +332,7 @@ public struct AppUninstallerView: View {
                 .shadow(color: Color(hex: "EF4444").opacity(0.4), radius: 8, x: 0, y: 3)
             }
             .buttonStyle(.plain)
-            .disabled(totalSelectedReclaimable == 0)
+            .disabled(totalSelectedReclaimable == 0 || isProcessingTrash)
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 14)
@@ -390,30 +427,59 @@ public struct AppUninstallerView: View {
     }
     
     private func trashSingleOrphan(_ group: OrphanedRemnantGroup) {
-        _ = AppUninstallerEngine.shared.trashOrphanGroup(group: group)
-        SoundManager.shared.playCardComplete()
-        HapticManager.shared.triggerSuccess()
-        orphanedGroups.removeAll(where: { $0.id == group.id })
+        let res = AppUninstallerEngine.shared.trashOrphanGroup(group: group)
+        if res.failedPaths.isEmpty {
+            SoundManager.shared.playCardComplete()
+            HapticManager.shared.triggerSuccess()
+            orphanedGroups.removeAll(where: { $0.id == group.id })
+            statusToast = "\(group.name) yetim kalıntıları Çöp Sepeti'ne taşındı."
+        } else {
+            SoundManager.shared.playError()
+            HapticManager.shared.triggerWarning()
+            statusToast = "Bazı kütüphane kırıntıları silinemedi (macOS yönetici izni verilmedi)."
+        }
     }
     
     private func executeTrashOperation() {
-        if selectedFilter == .orphans {
-            let toDelete = orphanedGroups.filter { $0.isSelected }
-            for g in toDelete {
-                _ = AppUninstallerEngine.shared.trashOrphanGroup(group: g)
-            }
-            orphanedGroups.removeAll(where: { $0.isSelected })
-        } else {
-            let appsToTrash = installedApps.filter { $0.isSelected || $0.remnants.contains(where: { $0.isSelected }) }
-            for app in appsToTrash {
-                _ = AppUninstallerEngine.shared.trashApp(app: app, trashBundle: app.isSelected)
-            }
-            installedApps.removeAll(where: { $0.isSelected && !$0.isSystemApp })
-        }
+        isProcessingTrash = true
         
-        SoundManager.shared.playCleanFinished()
-        HapticManager.shared.triggerSuccess()
-        runScan()
+        Task {
+            var totalReclaimed: Int64 = 0
+            var allFailedPaths: [String] = []
+            
+            if selectedFilter == .orphans {
+                let toDelete = orphanedGroups.filter { $0.isSelected }
+                for g in toDelete {
+                    let res = AppUninstallerEngine.shared.trashOrphanGroup(group: g)
+                    totalReclaimed += res.reclaimedSize
+                    allFailedPaths.append(contentsOf: res.failedPaths)
+                }
+            } else {
+                let appsToTrash = installedApps.filter { $0.isSelected || $0.remnants.contains(where: { $0.isSelected }) }
+                for app in appsToTrash {
+                    let res = AppUninstallerEngine.shared.trashApp(app: app, trashBundle: app.isSelected)
+                    totalReclaimed += res.reclaimedSize
+                    allFailedPaths.append(contentsOf: res.failedPaths)
+                }
+            }
+            
+            await MainActor.run {
+                self.isProcessingTrash = false
+                
+                if allFailedPaths.isEmpty {
+                    SoundManager.shared.playCleanFinished()
+                    HapticManager.shared.triggerSuccess()
+                    self.statusToast = "Seçilenler başarıyla Çöp Sepeti'ne taşındı (\(ByteCountFormatter.string(fromByteCount: totalReclaimed, countStyle: .file)) alan açıldı)."
+                } else {
+                    SoundManager.shared.playError()
+                    HapticManager.shared.triggerWarning()
+                    self.statusToast = "Bazı öğeler silinemedi (macOS yönetici izni verilmedi veya işlem iptal edildi)."
+                }
+                
+                // Diskteki gerçek duruma göre listeyi yenile
+                self.runScan()
+            }
+        }
     }
 }
 
