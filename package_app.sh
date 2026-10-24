@@ -184,6 +184,7 @@ if [ -n "$DEV_ID" ]; then
     echo "Apple sunucularına iletiliyor (notarytool)..."
     if xcrun notarytool submit "$DMG_OUTPUT" --keychain-profile "KASIF_NOTARY" --wait; then
         echo "Apple resmi noter onayını damgalıyor (stapling)..."
+        sleep 5
         xcrun stapler staple "$DMG_OUTPUT"
         xcrun stapler staple "/Applications/İhyâ.app" 2>/dev/null || true
         echo "Resmi Apple Noter Onayı Başarıyla Tamamlandı!"

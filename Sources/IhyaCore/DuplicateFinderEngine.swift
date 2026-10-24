@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import CryptoKit
 
 public enum FileCategoryType: String, CaseIterable, Sendable {
@@ -74,13 +75,24 @@ public struct FolderDuplicateSummary: Identifiable, Sendable {
     }
 }
 
-public final class DuplicateFinderEngine: Sendable {
+@MainActor
+public final class DuplicateFinderEngine: ObservableObject {
     public static let shared = DuplicateFinderEngine()
     
-    public init() {}
+    @Published public var isScanning: Bool = false
+    @Published public var hasScanned: Bool = false
+    @Published public var scanProgress: DuplicateScanProgress? = nil
+    @Published public var duplicateGroups: [DuplicateGroup] = []
+    @Published public var scanTargets: [ScanTargetItem] = []
+    
+    private var currentScanTask: Task<Void, Never>? = nil
+    
+    public init() {
+        self.scanTargets = Self.defaultScanTargets()
+    }
     
     /// Sistemde taranabilir disk ve ana klasörleri listeler
-    public func getAvailableScanTargets() -> [ScanTargetItem] {
+    public static func defaultScanTargets() -> [ScanTargetItem] {
         let home = NSHomeDirectory()
         var targets: [ScanTargetItem] = [
             ScanTargetItem(name: "İndirilenler", path: (home as NSString).appendingPathComponent("Downloads"), icon: "arrow.down.circle.fill", isSelected: true),
@@ -95,7 +107,6 @@ public final class DuplicateFinderEngine: Sendable {
         let fm = FileManager.default
         if let volContents = try? fm.contentsOfDirectory(atPath: "/Volumes") {
             for volName in volContents {
-                // Macintosh HD ve gizli mountları atla
                 if volName.hasPrefix(".") || volName == "Macintosh HD" { continue }
                 let volPath = "/Volumes/\(volName)"
                 targets.append(ScanTargetItem(
@@ -111,51 +122,162 @@ public final class DuplicateFinderEngine: Sendable {
         return targets
     }
     
+    public func getAvailableScanTargets() -> [ScanTargetItem] {
+        return scanTargets
+    }
+    
+    /// Arka planda kesintisiz tarama başlatır (Kullanıcı diğer menülere geçse de devam eder)
+    public func startBackgroundScan(targets: [String], onCompletion: (@Sendable () -> Void)? = nil) {
+        guard !isScanning else { return }
+        currentScanTask?.cancel()
+        
+        isScanning = true
+        hasScanned = false
+        scanProgress = DuplicateScanProgress(
+            step: .sizeGrouping,
+            currentPath: "Tarama başlatılıyor...",
+            processedFiles: 0,
+            totalCandidates: 0,
+            foundDuplicateGroups: 0,
+            progressFraction: 0.02
+        )
+        
+        currentScanTask = Task { [weak self] in
+            guard let self = self else { return }
+            let groups = await self.scanDuplicates(in: targets) { [weak self] progress in
+                Task { @MainActor [weak self] in
+                    guard let self = self, self.isScanning else { return }
+                    self.scanProgress = progress
+                }
+            }
+            
+            if !Task.isCancelled {
+                self.duplicateGroups = groups
+                self.hasScanned = true
+                self.isScanning = false
+                onCompletion?()
+            }
+        }
+    }
+    
+    /// Devam eden taramayı anında durdurur
+    public func cancelScan() {
+        currentScanTask?.cancel()
+        currentScanTask = nil
+        isScanning = false
+        scanProgress = nil
+    }
+    
     /// Tekli dizin için geriye dönük uyumlu tarama
     public func scanDuplicates(
         in directoryPath: String,
-        minSize: Int64 = 4096
+        minSize: Int64 = 4096,
+        onProgress: (@Sendable (DuplicateScanProgress) -> Void)? = nil
     ) async -> [DuplicateGroup] {
-        return await scanDuplicates(in: [directoryPath], minSize: minSize)
+        return await scanDuplicates(in: [directoryPath], minSize: minSize, onProgress: onProgress)
     }
     
     /// Çoklu disk ve klasörler arasında Eşzamanlı Çift Dosya Tarayıcı (POSIX + 4KB Prefix/Suffix + SHA-256)
     public func scanDuplicates(
         in directories: [String],
-        minSize: Int64 = 4096
+        minSize: Int64 = 4096,
+        onProgress: (@Sendable (DuplicateScanProgress) -> Void)? = nil
     ) async -> [DuplicateGroup] {
         let validPaths = directories.filter { FileManager.default.fileExists(atPath: $0) }
         guard !validPaths.isEmpty else { return [] }
+        if Task.isCancelled { return [] }
+        
+        onProgress?(DuplicateScanProgress(
+            step: .sizeGrouping,
+            currentPath: "Dizinler taranıyor...",
+            processedFiles: 0,
+            totalCandidates: 0,
+            foundDuplicateGroups: 0,
+            progressFraction: 0.05
+        ))
         
         // 1. Aşama: Boyut Eşleme (Tüm seçilen dizinlerde)
         let candidatesBySize = await Task.detached(priority: .userInitiated) {
-            self.collectFilesBySize(inDirectories: validPaths, minSize: minSize)
+            self.collectFilesBySize(inDirectories: validPaths, minSize: minSize, onProgress: onProgress)
         }.value
         
-        guard !candidatesBySize.isEmpty else { return [] }
+        guard !candidatesBySize.isEmpty && !Task.isCancelled else {
+            if !Task.isCancelled {
+                onProgress?(DuplicateScanProgress(
+                    step: .organizing,
+                    currentPath: "Tarama tamamlandı (Çift dosya bulunamadı)",
+                    processedFiles: 0,
+                    totalCandidates: 0,
+                    foundDuplicateGroups: 0,
+                    progressFraction: 1.0
+                ))
+            }
+            return []
+        }
+        
+        let totalCandidatesCount = candidatesBySize.values.reduce(0) { $0 + $1.count }
         
         // 2 & 3. Aşama: Prefix (4KB) ve Suffix (4KB) Hash Filtresi
         let candidatesByPartialHash = await Task.detached(priority: .userInitiated) {
-            self.filterByPartialHashes(candidatesBySize: candidatesBySize)
+            self.filterByPartialHashes(candidatesBySize: candidatesBySize, totalCandidateFiles: totalCandidatesCount, onProgress: onProgress)
         }.value
         
-        guard !candidatesByPartialHash.isEmpty else { return [] }
+        guard !candidatesByPartialHash.isEmpty && !Task.isCancelled else {
+            if !Task.isCancelled {
+                onProgress?(DuplicateScanProgress(
+                    step: .organizing,
+                    currentPath: "Tarama tamamlandı (Benzer boyutlu dosyalar farklı çıktı)",
+                    processedFiles: totalCandidatesCount,
+                    totalCandidates: totalCandidatesCount,
+                    foundDuplicateGroups: 0,
+                    progressFraction: 1.0
+                ))
+            }
+            return []
+        }
         
         // 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256 Doğrulama
-        let fullHashGroups = await computeFullHashesConcurrently(candidates: candidatesByPartialHash)
+        let fullHashGroups = await computeFullHashesConcurrently(candidates: candidatesByPartialHash, onProgress: onProgress)
+        if Task.isCancelled { return [] }
+        
+        onProgress?(DuplicateScanProgress(
+            step: .organizing,
+            currentPath: "İkiz dosya grupları tanzim ediliyor...",
+            processedFiles: totalCandidatesCount,
+            totalCandidates: totalCandidatesCount,
+            foundDuplicateGroups: fullHashGroups.count,
+            progressFraction: 0.98
+        ))
         
         // 5. Aşama: Gruplama ve Orijinal Belirleme
-        return organizeDuplicateGroups(fullHashGroups: fullHashGroups)
+        let results = organizeDuplicateGroups(fullHashGroups: fullHashGroups)
+        
+        onProgress?(DuplicateScanProgress(
+            step: .organizing,
+            currentPath: "İşlem tamamlandı: \(results.count) ikiz grup tespit edildi.",
+            processedFiles: totalCandidatesCount,
+            totalCandidates: totalCandidatesCount,
+            foundDuplicateGroups: results.count,
+            progressFraction: 1.0
+        ))
+        
+        return results
     }
     
     // MARK: - 1. Aşama: Boyut Toplama (Çoklu Dizin)
-    private func collectFilesBySize(inDirectories dirs: [String], minSize: Int64) -> [Int64: [String]] {
+    nonisolated private func collectFilesBySize(
+        inDirectories dirs: [String],
+        minSize: Int64,
+        onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
+    ) -> [Int64: [String]] {
         var sizeMap: [Int64: [String]] = [:]
         let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
         let fm = FileManager.default
         var seenPaths = Set<String>()
+        var scannedCount = 0
         
         for dir in dirs {
+            if Task.isCancelled { break }
             let rootURL = URL(fileURLWithPath: dir)
             guard let enumerator = fm.enumerator(
                 at: rootURL,
@@ -165,9 +287,23 @@ public final class DuplicateFinderEngine: Sendable {
             ) else { continue }
             
             while let url = enumerator.nextObject() as? URL {
+                if Task.isCancelled { break }
                 let path = url.path
                 if seenPaths.contains(path) { continue }
                 seenPaths.insert(path)
+                
+                scannedCount += 1
+                if scannedCount % 20 == 0 {
+                    let matchingCandidates = sizeMap.values.filter { $0.count > 1 }.reduce(0) { $0 + $1.count }
+                    onProgress?(DuplicateScanProgress(
+                        step: .sizeGrouping,
+                        currentPath: path,
+                        processedFiles: scannedCount,
+                        totalCandidates: matchingCandidates,
+                        foundDuplicateGroups: 0,
+                        progressFraction: min(0.30, Double(scannedCount) / 3000.0 * 0.30)
+                    ))
+                }
                 
                 guard let values = try? url.resourceValues(forKeys: Set(keys)),
                       values.isRegularFile == true,
@@ -179,17 +315,48 @@ public final class DuplicateFinderEngine: Sendable {
             }
         }
         
-        return sizeMap.filter { $0.value.count > 1 }
+        let filtered = sizeMap.filter { $0.value.count > 1 }
+        let totalCandidates = filtered.values.reduce(0) { $0 + $1.count }
+        onProgress?(DuplicateScanProgress(
+            step: .sizeGrouping,
+            currentPath: "Boyut analizi tamamlandı (\(totalCandidates) aday dosya)",
+            processedFiles: scannedCount,
+            totalCandidates: totalCandidates,
+            foundDuplicateGroups: 0,
+            progressFraction: 0.30
+        ))
+        return filtered
     }
     
     // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi
-    private func filterByPartialHashes(candidatesBySize: [Int64: [String]]) -> [[String]] {
+    nonisolated private func filterByPartialHashes(
+        candidatesBySize: [Int64: [String]],
+        totalCandidateFiles: Int,
+        onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
+    ) -> [[String]] {
         var candidateClusters: [[String]] = []
+        var processed = 0
+        let total = max(1, totalCandidateFiles)
         
         for (fileSize, paths) in candidatesBySize {
+            if Task.isCancelled { break }
             var partialMap: [String: [String]] = [:]
             
             for path in paths {
+                if Task.isCancelled { break }
+                processed += 1
+                if processed % 15 == 0 || processed == total {
+                    let fraction = 0.30 + (Double(processed) / Double(total)) * 0.35
+                    onProgress?(DuplicateScanProgress(
+                        step: .partialHash,
+                        currentPath: path,
+                        processedFiles: processed,
+                        totalCandidates: total,
+                        foundDuplicateGroups: candidateClusters.count,
+                        progressFraction: min(0.65, fraction)
+                    ))
+                }
+                
                 if let partialKey = computePartialKey(path: path, fileSize: fileSize) {
                     partialMap[partialKey, default: []].append(path)
                 }
@@ -203,7 +370,7 @@ public final class DuplicateFinderEngine: Sendable {
         return candidateClusters
     }
     
-    private func computePartialKey(path: String, fileSize: Int64) -> String? {
+    nonisolated private func computePartialKey(path: String, fileSize: Int64) -> String? {
         guard let file = fopen(path, "rb") else { return nil }
         defer { fclose(file) }
         
@@ -229,11 +396,20 @@ public final class DuplicateFinderEngine: Sendable {
     }
     
     // MARK: - 4. Aşama: Çok Çekirdekli Paralel Tam SHA-256
-    private func computeFullHashesConcurrently(candidates: [[String]]) async -> [String: (size: Int64, paths: [String])] {
-        await withTaskGroup(of: (String, String, Int64)?.self) { group in
+    nonisolated private func computeFullHashesConcurrently(
+        candidates: [[String]],
+        onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
+    ) async -> [String: (size: Int64, paths: [String])] {
+        let totalFiles = candidates.reduce(0) { $0 + $1.count }
+        guard totalFiles > 0 else { return [:] }
+        
+        return await withTaskGroup(of: (String, String, Int64)?.self) { group in
             for cluster in candidates {
+                if Task.isCancelled { break }
                 for path in cluster {
+                    if Task.isCancelled { break }
                     group.addTask {
+                        guard !Task.isCancelled else { return nil }
                         guard let hash = self.computeFullSHA256(path: path) else { return nil }
                         let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64) ?? 0
                         return (hash, path, size)
@@ -242,25 +418,47 @@ public final class DuplicateFinderEngine: Sendable {
             }
             
             var groups: [String: (size: Int64, paths: [String])] = [:]
+            var processed = 0
             for await item in group {
+                if Task.isCancelled {
+                    group.cancelAll()
+                    break
+                }
+                processed += 1
                 guard let (hash, path, size) = item else { continue }
+                
+                if processed % 5 == 0 || processed == totalFiles {
+                    let fraction = 0.65 + (Double(processed) / Double(totalFiles)) * 0.30
+                    let duplicateGroupCount = groups.values.filter { $0.paths.count > 1 }.count
+                    onProgress?(DuplicateScanProgress(
+                        step: .fullSHA256,
+                        currentPath: path,
+                        processedFiles: processed,
+                        totalCandidates: totalFiles,
+                        foundDuplicateGroups: duplicateGroupCount,
+                        progressFraction: min(0.95, fraction)
+                    ))
+                }
+                
                 if groups[hash] == nil {
                     groups[hash] = (size: size, paths: [path])
                 } else {
                     groups[hash]?.paths.append(path)
                 }
             }
+            
             return groups.filter { $0.value.paths.count > 1 }
         }
     }
     
-    private func computeFullSHA256(path: String) -> String? {
+    nonisolated private func computeFullSHA256(path: String) -> String? {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? handle.close() }
         
         var hasher = SHA256()
         let bufferSize = 131072 // 128 KB yüksek performanslı tampon
         while true {
+            if Task.isCancelled { return nil }
             let data = handle.readData(ofLength: bufferSize)
             if data.isEmpty { break }
             hasher.update(data: data)
@@ -270,11 +468,10 @@ public final class DuplicateFinderEngine: Sendable {
     }
     
     // MARK: - 5. Aşama: Gruplama ve Akıllı Orijinal Seçimi
-    private func organizeDuplicateGroups(fullHashGroups: [String: (size: Int64, paths: [String])]) -> [DuplicateGroup] {
+    nonisolated private func organizeDuplicateGroups(fullHashGroups: [String: (size: Int64, paths: [String])]) -> [DuplicateGroup] {
         var result: [DuplicateGroup] = []
         
         for (hash, tuple) in fullHashGroups {
-            // Tarihe göre sırala: En eski dosya varsayılan orijinaldir
             let sortedPaths = tuple.paths.sorted { (p1, p2) -> Bool in
                 let d1 = (try? FileManager.default.attributesOfItem(atPath: p1)[.creationDate] as? Date) ?? Date.distantPast
                 let d2 = (try? FileManager.default.attributesOfItem(atPath: p2)[.creationDate] as? Date) ?? Date.distantPast
@@ -304,13 +501,10 @@ public final class DuplicateFinderEngine: Sendable {
         return result.sorted { $0.reclaimableSize > $1.reclaimableSize }
     }
     
-    // MARK: - Akıllı Karar Kuralları (Hangi Klasördekiler Korunsun)
-    
-    /// Belirli bir klasördeki dosyaları koru, diğer klasörlerdeki kopyaları silmek üzere seç
-    public func applyFolderRetentionRule(groups: [DuplicateGroup], keepFolderPath: String) -> [DuplicateGroup] {
+    // MARK: - Akıllı Karar Kuralları
+    nonisolated public func applyFolderRetentionRule(groups: [DuplicateGroup], keepFolderPath: String) -> [DuplicateGroup] {
         return groups.map { group in
             var updatedFiles = group.files
-            // Eğer bu grupta korunan klasöre ait dosya varsa
             let hasInKeepFolder = updatedFiles.contains { $0.path.hasPrefix(keepFolderPath) }
             
             if hasInKeepFolder {
@@ -330,8 +524,7 @@ public final class DuplicateFinderEngine: Sendable {
         }
     }
     
-    /// Tarihe göre koruma kuralı (En eskiyi veya en yeniyi koru)
-    public func applyDateRetentionRule(groups: [DuplicateGroup], keepOldest: Bool) -> [DuplicateGroup] {
+    nonisolated public func applyDateRetentionRule(groups: [DuplicateGroup], keepOldest: Bool) -> [DuplicateGroup] {
         return groups.map { group in
             let sorted = group.files.sorted { f1, f2 in
                 keepOldest ? f1.modifiedDate < f2.modifiedDate : f1.modifiedDate > f2.modifiedDate
@@ -350,8 +543,7 @@ public final class DuplicateFinderEngine: Sendable {
         }
     }
     
-    /// Klasör bazlı çift dosya raporu üretir
-    public func getFolderSummaries(from groups: [DuplicateGroup]) -> [FolderDuplicateSummary] {
+    nonisolated public func getFolderSummaries(from groups: [DuplicateGroup]) -> [FolderDuplicateSummary] {
         var folderStats: [String: (count: Int, size: Int64)] = [:]
         
         for g in groups {
@@ -366,3 +558,4 @@ public final class DuplicateFinderEngine: Sendable {
             .sorted { $0.totalSize > $1.totalSize }
     }
 }
+

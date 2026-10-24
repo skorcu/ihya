@@ -13,13 +13,8 @@ public enum RetentionRule: String, CaseIterable, Identifiable {
 }
 
 public struct DuplicateFinderView: View {
-    @State private var duplicateGroups: [DuplicateGroup] = []
+    @ObservedObject private var dupEngine = DuplicateFinderEngine.shared
     @State private var ignoredGroupIds: Set<String> = []
-    @State private var isScanning: Bool = false
-    @State private var hasScanned: Bool = false
-    
-    // Çoklu Hedef Disk ve Klasör Seçimi
-    @State private var scanTargets: [ScanTargetItem] = []
     
     // Filtreler & Sekmeler
     @State private var selectedFilter: FileCategoryType = .all
@@ -31,9 +26,13 @@ public struct DuplicateFinderView: View {
     
     public init() {}
     
+    private var isScanning: Bool { dupEngine.isScanning }
+    private var hasScanned: Bool { dupEngine.hasScanned }
+    private var duplicateGroups: [DuplicateGroup] { dupEngine.duplicateGroups }
+    
     // Aktif (Yoksayılmamış) Gruplar
     private var activeGroups: [DuplicateGroup] {
-        duplicateGroups.filter { !ignoredGroupIds.contains($0.id) }
+        dupEngine.duplicateGroups.filter { !ignoredGroupIds.contains($0.id) }
     }
     
     // Filtrelenmiş Gruplar
@@ -135,8 +134,8 @@ public struct DuplicateFinderView: View {
             }
         }
         .onAppear {
-            if scanTargets.isEmpty {
-                scanTargets = DuplicateFinderEngine.shared.getAvailableScanTargets()
+            if dupEngine.scanTargets.isEmpty {
+                dupEngine.scanTargets = DuplicateFinderEngine.defaultScanTargets()
             }
         }
         .onDrop(of: ["public.file-url"], isTargeted: $isTargetedForDrop) { providers in
@@ -212,10 +211,10 @@ public struct DuplicateFinderView: View {
                             
                             // Çoklu Konum Seçici Çipleri
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                                ForEach(scanTargets.indices, id: \.self) { idx in
-                                    let target = scanTargets[idx]
+                                ForEach(dupEngine.scanTargets.indices, id: \.self) { idx in
+                                    let target = dupEngine.scanTargets[idx]
                                     Button(action: {
-                                        scanTargets[idx].isSelected.toggle()
+                                        dupEngine.scanTargets[idx].isSelected.toggle()
                                         HapticManager.shared.triggerClick()
                                     }) {
                                         HStack(spacing: 6) {
@@ -251,7 +250,7 @@ public struct DuplicateFinderView: View {
                         .background(Color.white.opacity(0.03))
                         .cornerRadius(10)
                         
-                        let selectedCount = scanTargets.filter { $0.isSelected }.count
+                        let selectedCount = dupEngine.scanTargets.filter { $0.isSelected }.count
                         FloatingActionButton(
                             title: selectedCount > 0 ? "Seçilen \(selectedCount) Konumda Çiftleri Ara" : "Lütfen En Az 1 Konum Seçin",
                             icon: "magnifyingglass",
@@ -401,6 +400,31 @@ public struct DuplicateFinderView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.white.opacity(0.6))
+                
+                Spacer()
+                
+                Button(action: {
+                    dupEngine.hasScanned = false
+                    dupEngine.duplicateGroups = []
+                    dupEngine.scanProgress = nil
+                    HapticManager.shared.triggerClick()
+                }) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Yeni Tarama Yap")
+                    }
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(Color(hex: "38BDF8"))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4.5)
+                    .background(Color(hex: "0284C7").opacity(0.18))
+                    .cornerRadius(6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color(hex: "38BDF8").opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
             
             // Kategori Filtre Hapları
@@ -576,21 +600,205 @@ public struct DuplicateFinderView: View {
     }
     
     private var scanningIndicatorView: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 20) {
             Spacer()
-            ProgressView()
-                .scaleEffect(1.4)
-                .tint(Color(hex: "38BDF8"))
             
-            Text("POSIX SHA-256 İle İkiz Dosyalar Aranıyor...")
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white)
+            // 1. Ana Dönen Halka & Aşama Başlığı
+            VStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .stroke(Color.white.opacity(0.08), lineWidth: 5)
+                        .frame(width: 64, height: 64)
+                    
+                    Circle()
+                        .trim(from: 0, to: CGFloat(dupEngine.scanProgress?.progressFraction ?? 0.15))
+                        .stroke(
+                            LinearGradient(
+                                colors: [Color(hex: "06B6D4"), Color(hex: "38BDF8"), Color(hex: "818CF8")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        )
+                        .frame(width: 64, height: 64)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 0.2), value: dupEngine.scanProgress?.progressFraction)
+                    
+                    Text("\(Int((dupEngine.scanProgress?.progressFraction ?? 0.05) * 100))%")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundColor(.white)
+                }
+                
+                Text(dupEngine.scanProgress?.step.title ?? "POSIX SHA-256 İle İkiz Dosyalar Aranıyor...")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+            }
             
-            Text("1. Boyut Süzgeci ➔ 2. 4KB Prefix Hash ➔ 3. Paralel SHA-256")
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
+            // 2. 3 Aşamalı Görsel Adım Çubuğu (Stepper)
+            HStack(spacing: 10) {
+                stepperStepPill(stepNumber: 1, title: "1. Boyut Süzgeci", currentStep: dupEngine.scanProgress?.step.rawValue ?? 1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.25))
+                stepperStepPill(stepNumber: 2, title: "2. 4KB Hızlı Hash", currentStep: dupEngine.scanProgress?.step.rawValue ?? 1)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundColor(.white.opacity(0.25))
+                stepperStepPill(stepNumber: 3, title: "3. Paralel SHA-256", currentStep: dupEngine.scanProgress?.step.rawValue ?? 1)
+            }
+            
+            // 3. İnce Yatay İlerleme Çubuğu (Progress Bar)
+            VStack(spacing: 6) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(Color.white.opacity(0.08))
+                            .frame(height: 6)
+                        
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(hex: "06B6D4"), Color(hex: "38BDF8"), Color(hex: "818CF8")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .frame(width: max(14, geo.size.width * CGFloat(dupEngine.scanProgress?.progressFraction ?? 0.05)), height: 6)
+                            .shadow(color: Color(hex: "38BDF8").opacity(0.5), radius: 6, x: 0, y: 0)
+                            .animation(.linear(duration: 0.15), value: dupEngine.scanProgress?.progressFraction)
+                    }
+                }
+                .frame(width: 440, height: 6)
+            }
+            
+            // 4. Anlık Taranan Dosya Yolu Kapsülü (CleanMyMac Standardı)
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.55)
+                    .frame(width: 12, height: 12)
+                
+                let path = dupEngine.scanProgress?.currentPath ?? "Dizinler taranıyor..."
+                let displayPath = path.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+                Text(displayPath)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.85))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 420)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            
+            // 5. Canlı Sayaçlar (Micro-Stats Pills)
+            HStack(spacing: 12) {
+                scanStatPill(
+                    icon: "doc.text.magnifyingglass",
+                    label: "İncelenen Dosya",
+                    value: "\(dupEngine.scanProgress?.processedFiles ?? 0)"
+                )
+                scanStatPill(
+                    icon: "bolt.badge.clock.fill",
+                    label: "Aday Eşleşme",
+                    value: "\(dupEngine.scanProgress?.totalCandidates ?? 0)"
+                )
+                scanStatPill(
+                    icon: "doc.on.doc.fill",
+                    label: "Bulunan İkiz Grup",
+                    value: "\(dupEngine.scanProgress?.foundDuplicateGroups ?? 0)"
+                )
+            }
+            
+            // 6. Taramayı Durdur Düğmesi (User Control)
+            Button(action: {
+                HapticManager.shared.triggerClick()
+                dupEngine.cancelScan()
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 13))
+                    Text("Taramayı Durdur")
+                        .font(.system(size: 12, weight: .semibold))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .foregroundColor(Color(hex: "F87171"))
+                .background(Color(hex: "EF4444").opacity(0.12))
+                .cornerRadius(10)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color(hex: "EF4444").opacity(0.28), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+            
             Spacer()
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+    
+    private func stepperStepPill(stepNumber: Int, title: String, currentStep: Int) -> some View {
+        let isDone = currentStep > stepNumber
+        let isActive = currentStep == stepNumber
+        
+        return HStack(spacing: 6) {
+            if isDone {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Color(hex: "10B981"))
+                    .font(.system(size: 11, weight: .bold))
+            } else if isActive {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .frame(width: 10, height: 10)
+            } else {
+                Circle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 6, height: 6)
+            }
+            
+            Text(title)
+                .font(.system(size: 11, weight: isActive ? .bold : .medium))
+                .foregroundColor(isDone ? Color(hex: "10B981") : (isActive ? Color(hex: "38BDF8") : .white.opacity(0.45)))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(isActive ? Color(hex: "38BDF8").opacity(0.12) : Color.white.opacity(0.04))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isActive ? Color(hex: "38BDF8").opacity(0.35) : Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+    
+    private func scanStatPill(icon: String, label: String, value: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundColor(Color(hex: "38BDF8"))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.white.opacity(0.5))
+                Text(value)
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundColor(.white)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.white.opacity(0.05))
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
     }
     
     private var emptyResultView: some View {
@@ -609,7 +817,7 @@ public struct DuplicateFinderView: View {
                 .foregroundColor(.white.opacity(0.6))
             
             Button("Farklı Klasörleri Tara") {
-                hasScanned = false
+                dupEngine.hasScanned = false
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
@@ -631,8 +839,8 @@ public struct DuplicateFinderView: View {
     }
     
     private func addCustomFolderTarget(path: String) {
-        if !scanTargets.contains(where: { $0.path == path }) {
-            scanTargets.append(ScanTargetItem(
+        if !dupEngine.scanTargets.contains(where: { $0.path == path }) {
+            dupEngine.scanTargets.append(ScanTargetItem(
                 name: (path as NSString).lastPathComponent,
                 path: path,
                 icon: "folder.badge.plus",
@@ -642,19 +850,12 @@ public struct DuplicateFinderView: View {
     }
     
     private func runScan() {
-        let selectedPaths = scanTargets.filter { $0.isSelected }.map { $0.path }
+        let selectedPaths = dupEngine.scanTargets.filter { $0.isSelected }.map { $0.path }
         guard !selectedPaths.isEmpty else { return }
         
-        isScanning = true
         ignoredGroupIds.removeAll()
-        
-        Task {
-            let groups = await DuplicateFinderEngine.shared.scanDuplicates(in: selectedPaths)
-            await MainActor.run {
-                self.duplicateGroups = groups
-                self.isScanning = false
-                self.hasScanned = true
-                self.selectedFileForPreview = groups.first?.files.first
+        dupEngine.startBackgroundScan(targets: selectedPaths) {
+            Task { @MainActor in
                 SoundManager.shared.playSuccess()
                 HapticManager.shared.triggerSuccess()
             }
@@ -662,17 +863,17 @@ public struct DuplicateFinderView: View {
     }
     
     private func toggleFileSelection(groupId: String, fileId: String) {
-        if let gIndex = duplicateGroups.firstIndex(where: { $0.id == groupId }),
-           let fIndex = duplicateGroups[gIndex].files.firstIndex(where: { $0.id == fileId }) {
-            duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion.toggle()
+        if let gIndex = dupEngine.duplicateGroups.firstIndex(where: { $0.id == groupId }),
+           let fIndex = dupEngine.duplicateGroups[gIndex].files.firstIndex(where: { $0.id == fileId }) {
+            dupEngine.duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion.toggle()
         }
     }
     
     private func toggleFileSelectionByPath(_ path: String) {
-        for gIndex in duplicateGroups.indices {
-            for fIndex in duplicateGroups[gIndex].files.indices {
-                if duplicateGroups[gIndex].files[fIndex].path == path {
-                    duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion.toggle()
+        for gIndex in dupEngine.duplicateGroups.indices {
+            for fIndex in dupEngine.duplicateGroups[gIndex].files.indices {
+                if dupEngine.duplicateGroups[gIndex].files[fIndex].path == path {
+                    dupEngine.duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion.toggle()
                     return
                 }
             }
@@ -680,26 +881,26 @@ public struct DuplicateFinderView: View {
     }
     
     private func selectAllDuplicates(_ select: Bool) {
-        for gIndex in duplicateGroups.indices {
-            for fIndex in duplicateGroups[gIndex].files.indices {
-                if !duplicateGroups[gIndex].files[fIndex].isOriginal {
-                    duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion = select
+        for gIndex in dupEngine.duplicateGroups.indices {
+            for fIndex in dupEngine.duplicateGroups[gIndex].files.indices {
+                if !dupEngine.duplicateGroups[gIndex].files[fIndex].isOriginal {
+                    dupEngine.duplicateGroups[gIndex].files[fIndex].isSelectedForDeletion = select
                 }
             }
         }
     }
     
     private func applyFolderRule(keepFolderPath: String) {
-        self.duplicateGroups = DuplicateFinderEngine.shared.applyFolderRetentionRule(
-            groups: duplicateGroups,
+        dupEngine.duplicateGroups = DuplicateFinderEngine.shared.applyFolderRetentionRule(
+            groups: dupEngine.duplicateGroups,
             keepFolderPath: keepFolderPath
         )
         HapticManager.shared.triggerSuccess()
     }
     
     private func applyDateRule(keepOldest: Bool) {
-        self.duplicateGroups = DuplicateFinderEngine.shared.applyDateRetentionRule(
-            groups: duplicateGroups,
+        dupEngine.duplicateGroups = DuplicateFinderEngine.shared.applyDateRetentionRule(
+            groups: dupEngine.duplicateGroups,
             keepOldest: keepOldest
         )
         HapticManager.shared.triggerSuccess()

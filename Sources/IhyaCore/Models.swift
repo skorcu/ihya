@@ -239,3 +239,54 @@ public struct LipoItem: Identifiable, Sendable {
         ByteCountFormatter.string(fromByteCount: reclaimableSize, countStyle: .file)
     }
 }
+
+public struct DuplicateScanProgress: Sendable {
+    public enum Step: Int, Sendable, CaseIterable {
+        case sizeGrouping = 1
+        case partialHash = 2
+        case fullSHA256 = 3
+        case organizing = 4
+        
+        public var title: String {
+            switch self {
+            case .sizeGrouping: return "Boyut Analizi & Dizin Taraması"
+            case .partialHash: return "4KB Prefix / Suffix Hızlı Filtre"
+            case .fullSHA256: return "Paralel POSIX SHA-256 Doğrulama"
+            case .organizing: return "İkiz Grupları Tanzim Ediliyor"
+            }
+        }
+        
+        public var shortLabel: String {
+            switch self {
+            case .sizeGrouping: return "Boyut Analizi"
+            case .partialHash: return "4KB Hızlı Hash"
+            case .fullSHA256: return "Tam SHA-256"
+            case .organizing: return "Tanzim"
+            }
+        }
+    }
+    
+    public let step: Step
+    public let currentPath: String
+    public let processedFiles: Int
+    public let totalCandidates: Int
+    public let foundDuplicateGroups: Int
+    public let progressFraction: Double
+    
+    public init(
+        step: Step,
+        currentPath: String,
+        processedFiles: Int = 0,
+        totalCandidates: Int = 0,
+        foundDuplicateGroups: Int = 0,
+        progressFraction: Double = 0.0
+    ) {
+        self.step = step
+        self.currentPath = currentPath
+        self.processedFiles = processedFiles
+        self.totalCandidates = totalCandidates
+        self.foundDuplicateGroups = foundDuplicateGroups
+        self.progressFraction = progressFraction
+    }
+}
+

@@ -46,6 +46,7 @@ public enum AppTab: String, CaseIterable, Identifiable {
 public struct MainView: View {
     @StateObject private var engine = CleanerEngine.shared
     @StateObject private var licenseManager = LicenseManager.shared
+    @ObservedObject private var dupEngine = DuplicateFinderEngine.shared
     @State private var selectedTab: AppTab = .smartClean
     @State private var selectedCategoryForXRay: CategorySummary? = nil
     @State private var licenseInputKey: String = ""
@@ -367,6 +368,21 @@ public struct MainView: View {
                             .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.7))
                         
                         Spacer()
+                        
+                        if tab == .duplicateFinder && dupEngine.isScanning {
+                            HStack(spacing: 4) {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .frame(width: 10, height: 10)
+                                Text("\(Int((dupEngine.scanProgress?.progressFraction ?? 0) * 100))%")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                    .foregroundColor(Color(hex: "38BDF8"))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color(hex: "0284C7").opacity(0.2))
+                            .cornerRadius(6)
+                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
@@ -406,11 +422,60 @@ public struct MainView: View {
     
     // MARK: - Üst İnce Durum Çubuğu
     private var topHeaderBar: some View {
-        HStack {
+        HStack(spacing: 12) {
             Text(selectedTab.rawValue)
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(1)
+            
+            // Eğer Çift Dosya Avcısı arka planda taranıyorsa ve kullanıcı başka menüdeyse:
+            if dupEngine.isScanning && selectedTab != .duplicateFinder {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.55)
+                        .tint(Color(hex: "38BDF8"))
+                        .frame(width: 12, height: 12)
+                    
+                    Button(action: {
+                        selectedTab = .duplicateFinder
+                        HapticManager.shared.triggerClick()
+                    }) {
+                        HStack(spacing: 6) {
+                            Text("Çift Dosyalar Taranıyor (\(Int((dupEngine.scanProgress?.progressFraction ?? 0) * 100))%)")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Color(hex: "38BDF8"))
+                            
+                            if let path = dupEngine.scanProgress?.currentPath, !path.isEmpty {
+                                Text("• " + (path as NSString).lastPathComponent)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundColor(.white.opacity(0.65))
+                                    .lineLimit(1)
+                                    .frame(maxWidth: 180)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: {
+                        dupEngine.cancelScan()
+                        HapticManager.shared.triggerClick()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .help("Çift Dosya Taramasını Durdur")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Color(hex: "0284C7").opacity(0.18))
+                .cornerRadius(8)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: "38BDF8").opacity(0.35), lineWidth: 1)
+                )
+            }
             
             Spacer()
             
@@ -1430,6 +1495,13 @@ public struct MainView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                    }
+
+                    HStack {
+                        Spacer()
+                        Link("VIP Satın Al (3'lü Taş Seti Hediyeli) ↗", destination: URL(string: "https://sarkacadam.com/urun/ihya-sukunet-kristal-seti")!)
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(Color(hex: "F59E0B"))
                     }
                     
                     if !licenseStatusMessage.isEmpty {
