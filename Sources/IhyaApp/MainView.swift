@@ -249,25 +249,25 @@ public struct MainView: View {
     private var sidebarView: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Logo & Marka Başlığı
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 if let path = Bundle.main.path(forResource: "icon_1024", ofType: "png"),
                    let img = NSImage(contentsOfFile: path) {
                     Image(nsImage: img)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 32, height: 32)
-                        .cornerRadius(8)
-                        .shadow(color: Color(hex: "06B6D4").opacity(0.4), radius: 6, x: 0, y: 2)
+                        .frame(width: 28, height: 28)
+                        .cornerRadius(7)
+                        .shadow(color: Color(hex: "06B6D4").opacity(0.4), radius: 5, x: 0, y: 1)
                 } else if let appIcon = NSImage(named: NSImage.applicationIconName) {
                     Image(nsImage: appIcon)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
-                        .frame(width: 32, height: 32)
-                        .cornerRadius(8)
-                        .shadow(color: Color(hex: "06B6D4").opacity(0.4), radius: 6, x: 0, y: 2)
+                        .frame(width: 28, height: 28)
+                        .cornerRadius(7)
+                        .shadow(color: Color(hex: "06B6D4").opacity(0.4), radius: 5, x: 0, y: 1)
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .fill(
                                 LinearGradient(
                                     colors: [Color(hex: "38BDF8"), Color(hex: "7C3AED")],
@@ -275,26 +275,26 @@ public struct MainView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 32, height: 32)
+                            .frame(width: 28, height: 28)
                         Image(systemName: "sparkles")
-                            .font(.system(size: 15, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundColor(.white)
                     }
                 }
                 
                 Text("İhyâ")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
                 Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 28)
-            .padding(.bottom, 16)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
             
             // Gruplandırılmış Navigasyon Listesi
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 10) {
                     sidebarSection(title: "GENEL", tabs: [.smartClean])
                     sidebarSection(title: "UYGULAMA & ALAN", tabs: [.spaceLens, .largeOldFiles, .uninstaller, .appUpdater, .duplicateFinder, .browserPrivacy, .appLipo])
                     sidebarSection(title: "PERFORMANS & KORUMA", tabs: [.systemOptimize, .startupManager, .developerVault, .ghostDaemons])
@@ -420,11 +420,11 @@ public struct MainView: View {
                     }
                 }
             }
-            .padding(14)
+            .padding(10)
             .background(Color.white.opacity(0.04))
             .cornerRadius(10)
             .padding(.horizontal, 10)
-            .padding(.bottom, 16)
+            .padding(.bottom, 10)
         }
         .background(Color.black.opacity(0.22))
         .overlay(
@@ -436,12 +436,12 @@ public struct MainView: View {
     }
     
     private func sidebarSection(title: String, tabs: [AppTab]) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(title)
-                .font(.system(size: 9, weight: .heavy))
-                .foregroundColor(.white.opacity(0.4))
-                .padding(.horizontal, 10)
-                .padding(.bottom, 2)
+                .font(.system(size: 8.5, weight: .heavy))
+                .foregroundColor(.white.opacity(0.35))
+                .padding(.horizontal, 8)
+                .padding(.bottom, 1)
             
             ForEach(tabs) { tab in
                 let key = tabShortcut(for: tab)
@@ -450,14 +450,14 @@ public struct MainView: View {
                     selectedCategoryForXRay = nil
                     HapticManager.shared.triggerClick()
                 }) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: 9) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 13, weight: selectedTab == tab ? .bold : .medium))
+                            .font(.system(size: 12.5, weight: selectedTab == tab ? .bold : .medium))
                             .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.55))
-                            .frame(width: 18, alignment: .center)
+                            .frame(width: 16, alignment: .center)
                         
                         Text(tab.rawValue)
-                            .font(.system(size: 12, weight: selectedTab == tab ? .semibold : .regular))
+                            .font(.system(size: 11.5, weight: selectedTab == tab ? .semibold : .regular))
                             .foregroundColor(selectedTab == tab ? .white : .white.opacity(0.75))
                             .lineLimit(1)
                             .truncationMode(.tail)
@@ -473,24 +473,24 @@ public struct MainView: View {
                                     .font(.system(size: 9, weight: .bold, design: .monospaced))
                                     .foregroundColor(Color(hex: "38BDF8"))
                             }
-                            .padding(.horizontal, 6)
+                            .padding(.horizontal, 5)
                             .padding(.vertical, 2)
                             .background(Color(hex: "0284C7").opacity(0.2))
-                            .cornerRadius(6)
+                            .cornerRadius(5)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 32)
-                    .padding(.horizontal, 10)
+                    .frame(height: 27)
+                    .padding(.horizontal, 8)
                     .background(
                         selectedTab == tab ?
                         Color.white.opacity(0.12) :
                         Color.clear
                     )
-                    .cornerRadius(8)
+                    .cornerRadius(7)
                     .overlay(
                         selectedTab == tab ?
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: 7)
                             .stroke(Color.white.opacity(0.18), lineWidth: 1) : nil
                     )
                 }
