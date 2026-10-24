@@ -305,23 +305,41 @@ public struct SystemOptimizationView: View {
         )
     }
     
-    // MARK: - Akıllı Bellek Tavsiyesi Banner'ı (Smart RAM Advisor)
+    // MARK: - Akıllı Bellek Tavsiyesi Banner'ı (Smart RAM Advisor - Net ve İlk Bakışta Okunabilir)
     private func smartAdvisorBanner(topApp: AppMemoryUsage) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
+            // 1. Uygulama Simgesi / Aydınlatma Rozeti
             ZStack {
-                Circle()
-                    .fill(Color(hex: "F59E0B").opacity(0.18))
-                    .frame(width: 38, height: 38)
-                Image(systemName: "lightbulb.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(Color(hex: "F59E0B"))
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(hex: "F59E0B").opacity(0.16))
+                    .frame(width: 44, height: 44)
+                
+                if let icon = topApp.icon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 28, height: 28)
+                        .cornerRadius(6)
+                } else {
+                    Image(systemName: "lightbulb.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(Color(hex: "F59E0B"))
+                }
             }
             
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text("Akıllı Bellek Tavsiyesi")
-                        .font(.system(size: 12, weight: .bold))
+            // 2. Başlık & Açıklama (Uygulama Adı İlk Satırda ve En Belirgin Şekilde)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text(topApp.name)
+                        .font(.system(size: 14, weight: .black))
                         .foregroundColor(.white)
+                    
+                    Text(topApp.formattedMemory)
+                        .font(.system(size: 11, weight: .black, design: .monospaced))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Color(hex: "EF4444").opacity(0.25))
+                        .foregroundColor(Color(hex: "F87171"))
+                        .cornerRadius(5)
                     
                     Text("%\(Int(engine.memoryStats.usagePercentage)) Dolu")
                         .font(.system(size: 9, weight: .bold))
@@ -332,41 +350,45 @@ public struct SystemOptimizationView: View {
                         .cornerRadius(4)
                 }
                 
-                Text("Önbellek arındırma inaktif sayfaları tazeler; açık uygulamalar RAM tutmaya devam eder. En çok bellek kullanan \(topApp.name) (\(topApp.formattedMemory)) kapatılarak sistem anında ferahlatılabilir.")
+                Text("Arka planda yüksek RAM tüketiyor. Kapatıp sistemi anında ferahlatmak ister misiniz?")
                     .font(.system(size: 11))
                     .foregroundColor(.white.opacity(0.75))
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
             
             Spacer()
             
+            // 3. Tek Tıkla Kapatma Eylemi
             Button(action: {
                 appToQuit = topApp
                 showQuitConfirm = true
             }) {
-                HStack(spacing: 5) {
+                HStack(spacing: 6) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                     Text("\(topApp.name)'ı Kapat")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 12, weight: .bold))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 7)
-                .background(Color(hex: "EF4444").opacity(0.25))
-                .foregroundColor(Color(hex: "FCA5A5"))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(hex: "EF4444").opacity(0.4), lineWidth: 1)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "EF4444"), Color(hex: "DC2626")],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
                 )
+                .foregroundColor(.white)
+                .cornerRadius(8)
+                .shadow(color: Color(hex: "EF4444").opacity(0.4), radius: 5, y: 1)
             }
             .buttonStyle(.plain)
-            .help("\(topApp.name) uygulamasını güvenle sonlandırarak \(topApp.formattedMemory) bellek kazandırır")
+            .help("\(topApp.name) uygulamasını sonlandırarak \(topApp.formattedMemory) belleği serbest bırak")
         }
         .padding(14)
         .background(
             LinearGradient(
-                colors: [Color(hex: "F59E0B").opacity(0.12), Color(hex: "D97706").opacity(0.06)],
+                colors: [Color(hex: "F59E0B").opacity(0.14), Color(hex: "D97706").opacity(0.06)],
                 startPoint: .leading,
                 endPoint: .trailing
             )
@@ -374,7 +396,7 @@ public struct SystemOptimizationView: View {
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(hex: "F59E0B").opacity(0.25), lineWidth: 1)
+                .stroke(Color(hex: "F59E0B").opacity(0.3), lineWidth: 1)
         )
     }
 
