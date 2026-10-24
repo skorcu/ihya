@@ -148,6 +148,32 @@ final class IhyaTests: XCTestCase {
         XCTAssertNil(invalidMtimeRecord)
     }
     
+    @MainActor
+    func testDuplicateDetectionWithDifferentNames() async {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+        
+        let subDir1 = tempDir.appendingPathComponent("FolderA")
+        let subDir2 = tempDir.appendingPathComponent("FolderB")
+        try? FileManager.default.createDirectory(at: subDir1, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: subDir2, withIntermediateDirectories: true)
+        
+        // Birebir aynı içerik, tamamen farklı iki dosya adı ve uzantı/klasör
+        let dummyContent = Data(repeating: 0x42, count: 12000)
+        let file1 = subDir1.appendingPathComponent("Orijinal_IMG_001.jpg")
+        let file2 = subDir2.appendingPathComponent("Kopya_Tamamen_Farkli_Isim.jpg")
+        
+        try? dummyContent.write(to: file1)
+        try? dummyContent.write(to: file2)
+        
+        let engine = DuplicateFinderEngine.shared
+        let groups = await engine.scanDuplicates(in: [tempDir.path], minSize: 1000)
+        
+        XCTAssertEqual(groups.count, 1, "Farklı isimli olsalar dahi içerikleri aynı olan dosyalar tek bir ikiz grup oluşturmalıdır.")
+        XCTAssertEqual(groups.first?.files.count, 2, "İkiz grup içerisinde 2 dosya yer almalıdır.")
+    }
+    
     // MARK: - 7. Anlamlı Dosyalar ve Gürültü Süzgeci Testleri
     func testMeaningfulExtensionsAndNoiseFilter() {
         // Yaygın kullanıcı dosyaları dahil edilmeli

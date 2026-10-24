@@ -333,6 +333,7 @@ public final class DuplicateFinderEngine: ObservableObject {
         let fm = FileManager.default
         var seenPaths = Set<String>()
         var scannedCount = 0
+        var duplicateCandidatesCount = 0
         
         for dir in dirs {
             if Task.isCancelled { break }
@@ -351,16 +352,15 @@ public final class DuplicateFinderEngine: ObservableObject {
                 seenPaths.insert(path)
                 
                 scannedCount += 1
-                if scannedCount % 20 == 0 {
-                    let matchingCandidates = sizeMap.values.filter { $0.count > 1 }.reduce(0) { $0 + $1.count }
+                if scannedCount % 100 == 0 {
                     onProgress?(DuplicateScanProgress(
                         step: .sizeGrouping,
                         currentPath: path,
                         totalScannedFiles: scannedCount,
-                        processedCandidates: matchingCandidates,
-                        totalCandidates: matchingCandidates,
+                        processedCandidates: duplicateCandidatesCount,
+                        totalCandidates: duplicateCandidatesCount,
                         foundDuplicateGroups: 0,
-                        progressFraction: min(0.30, Double(scannedCount) / 3000.0 * 0.30)
+                        progressFraction: min(0.30, Double(scannedCount) / 10000.0 * 0.30)
                     ))
                 }
                 
@@ -384,7 +384,16 @@ public final class DuplicateFinderEngine: ObservableObject {
                 }
                 
                 let fileSize = Int64(size)
-                sizeMap[fileSize, default: []].append(path)
+                if let count = sizeMap[fileSize]?.count {
+                    if count == 1 {
+                        duplicateCandidatesCount += 2
+                    } else {
+                        duplicateCandidatesCount += 1
+                    }
+                    sizeMap[fileSize]?.append(path)
+                } else {
+                    sizeMap[fileSize] = [path]
+                }
             }
         }
         
@@ -456,6 +465,9 @@ public final class DuplicateFinderEngine: ObservableObject {
                 candidateClusters.append(matchingPaths)
             }
         }
+        
+        // Faz 2 tamamlandığında kısmi anahtarları kalıcı önbelleğe kaydet
+        await DuplicateHashCache.shared.saveToDisk()
         
         return candidateClusters
     }
@@ -590,16 +602,18 @@ public final class DuplicateFinderEngine: ObservableObject {
     }
     
     nonisolated private func computeFullSHA256(path: String) -> String? {
-        guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
-        defer { try? handle.close() }
+        guard let file = fopen(path, "rb") else { return nil }
+        defer { fclose(file) }
         
         var hasher = SHA256()
-        let bufferSize = 131072 // 128 KB yüksek performanslı tampon
+        let bufferSize = 262144 // 256 KB yüksek performanslı C tamponu (Sıfır Foundation köprüsü / Sıfır NSData yükü)
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        
         while true {
             if Task.isCancelled { return nil }
-            let data = handle.readData(ofLength: bufferSize)
-            if data.isEmpty { break }
-            hasher.update(data: data)
+            let bytesRead = fread(&buffer, 1, bufferSize, file)
+            if bytesRead == 0 { break }
+            hasher.update(data: Data(buffer[0..<bytesRead]))
         }
         let digest = hasher.finalize()
         return digest.map { String(format: "%02x", $0) }.joined()
