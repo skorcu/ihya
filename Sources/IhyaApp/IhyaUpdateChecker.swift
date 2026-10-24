@@ -18,7 +18,7 @@ public final class IhyaUpdateChecker: ObservableObject {
     private var periodicTimer: Timer?
     
     public let currentVersion: String = {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.5"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.6"
     }()
     
     // Can Eser Central Update Feed (no rate limits)
@@ -27,8 +27,8 @@ public final class IhyaUpdateChecker: ObservableObject {
     private init() {}
     
     public func startPeriodicChecks(interval: TimeInterval = 3600 * 2) {
-        // Run first check 3 seconds after launch for smooth startup
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+        // Run first check 0.5 seconds after launch for instant feedback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             self?.checkForUpdates(silent: true)
         }
         

@@ -1,6 +1,9 @@
 import Foundation
 import Combine
 import CryptoKit
+#if canImport(Darwin)
+import Darwin
+#endif
 
 public enum FileCategoryType: String, CaseIterable, Sendable {
     case all = "Tümü"
@@ -333,7 +336,12 @@ public final class DuplicateFinderEngine: ObservableObject {
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) -> (candidates: [Int64: [String]], totalScannedCount: Int) {
         var sizeMap: [Int64: [String]] = [:]
-        let keys: [URLResourceKey] = [.fileSizeKey, .isRegularFileKey]
+        let keys: [URLResourceKey] = [
+            .fileSizeKey,
+            .isRegularFileKey,
+            .isSymbolicLinkKey,
+            .ubiquitousItemDownloadingStatusKey
+        ]
         let fm = FileManager.default
         var seenPaths = Set<String>()
         var scannedCount = 0
@@ -370,6 +378,8 @@ public final class DuplicateFinderEngine: ObservableObject {
                 
                 guard let values = try? url.resourceValues(forKeys: Set(keys)),
                       values.isRegularFile == true,
+                      values.isSymbolicLink != true,
+                      values.ubiquitousItemDownloadingStatus != .notDownloaded,
                       let size = values.fileSize,
                       Int64(size) >= minSize else { continue }
                 
@@ -415,81 +425,126 @@ public final class DuplicateFinderEngine: ObservableObject {
         return (filtered, scannedCount)
     }
     
-    // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi (Önbellek Destekli)
+    // MARK: - 2 & 3. Aşama: 4KB Prefix + 4KB Suffix Hash Filtresi (Çok Çekirdekli & Önbellek Destekli)
     nonisolated private func filterByPartialHashes(
         candidatesBySize: [Int64: [String]],
         totalScannedFiles: Int,
         totalCandidateFiles: Int,
         onProgress: (@Sendable (DuplicateScanProgress) -> Void)?
     ) async -> [[String]] {
-        var candidateClusters: [[String]] = []
-        var processed = 0
-        let total = max(1, totalCandidateFiles)
+        let cacheSnapshot = await DuplicateHashCache.shared.getRecordsSnapshot()
         
+        var candidateItems: [(path: String, size: Int64)] = []
         for (fileSize, paths) in candidatesBySize {
-            if Task.isCancelled { break }
-            var partialMap: [String: [String]] = [:]
-            
             for path in paths {
-                if Task.isCancelled { break }
-                processed += 1
-                if processed % 15 == 0 || processed == total {
-                    let fraction = 0.30 + (Double(processed) / Double(total)) * 0.35
-                    onProgress?(DuplicateScanProgress(
-                        step: .partialHash,
-                        currentPath: path,
-                        totalScannedFiles: totalScannedFiles,
-                        processedCandidates: processed,
-                        totalCandidates: total,
-                        foundDuplicateGroups: candidateClusters.count,
-                        progressFraction: min(0.65, fraction)
-                    ))
-                }
-                
-                // 1. Önce Hızlı Önbellekten sorgula
-                let mtime = (try? FileManager.default.attributesOfItem(atPath: path)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-                let cached = await DuplicateHashCache.shared.getRecord(path: path, currentMTime: mtime, currentSize: fileSize)
-                
-                let partialKey: String?
-                if let cp = cached?.partialKey {
-                    partialKey = cp
-                } else if let computed = computePartialKey(path: path, fileSize: fileSize) {
-                    partialKey = computed
-                    await DuplicateHashCache.shared.setPartial(path: path, mtime: mtime, size: fileSize, partialKey: computed)
-                } else {
-                    partialKey = nil
-                }
-                
-                if let pk = partialKey {
-                    partialMap[pk, default: []].append(path)
-                }
-            }
-            
-            for (_, matchingPaths) in partialMap where matchingPaths.count > 1 {
-                candidateClusters.append(matchingPaths)
+                candidateItems.append((path: path, size: fileSize))
             }
         }
         
-        // Faz 2 tamamlandığında kısmi anahtarları kalıcı önbelleğe kaydet
-        await DuplicateHashCache.shared.saveToDisk()
+        let total = candidateItems.count
+        guard total > 0 else { return [] }
         
-        return candidateClusters
+        var groupedByPartial: [String: [String]] = [:]
+        var newCacheRecords: [FileHashRecord] = []
+        
+        var currentIndex = 0
+        var processedCount = 0
+        
+        while currentIndex < total && !Task.isCancelled {
+            let batchEnd = min(currentIndex + 128, total)
+            let batch = Array(candidateItems[currentIndex..<batchEnd])
+            currentIndex = batchEnd
+            
+            let batchResults = await withTaskGroup(of: (path: String, size: Int64, partialKey: String?, newRecord: FileHashRecord?).self) { group in
+                for item in batch {
+                    group.addTask {
+                        let mtime = (try? FileManager.default.attributesOfItem(atPath: item.path)[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+                        
+                        if let cached = cacheSnapshot[item.path],
+                           abs(cached.mtime - mtime) < 0.001,
+                           cached.size == item.size {
+                            return (item.path, item.size, cached.partialKey, nil)
+                        }
+                        
+                        if let computed = self.computePartialKey(path: item.path, fileSize: item.size) {
+                            let rec = FileHashRecord(path: item.path, mtime: mtime, size: item.size, partialKey: computed, fullSHA256: nil)
+                            return (item.path, item.size, computed, rec)
+                        }
+                        
+                        return (item.path, item.size, nil, nil)
+                    }
+                }
+                
+                var results: [(path: String, size: Int64, partialKey: String?, newRecord: FileHashRecord?)] = []
+                for await res in group {
+                    results.append(res)
+                }
+                return results
+            }
+            
+            for res in batchResults {
+                processedCount += 1
+                if let pk = res.partialKey {
+                    let groupKey = "\(res.size)_\(pk)"
+                    groupedByPartial[groupKey, default: []].append(res.path)
+                }
+                if let rec = res.newRecord {
+                    newCacheRecords.append(rec)
+                }
+            }
+            
+            let fraction = 0.30 + (Double(processedCount) / Double(total)) * 0.35
+            onProgress?(DuplicateScanProgress(
+                step: .partialHash,
+                currentPath: batch.last?.path ?? "Kısmi hash analizi...",
+                totalScannedFiles: totalScannedFiles,
+                processedCandidates: processedCount,
+                totalCandidates: total,
+                foundDuplicateGroups: 0,
+                progressFraction: min(0.65, fraction)
+            ))
+            
+            await Task.yield()
+        }
+        
+        if !newCacheRecords.isEmpty {
+            await DuplicateHashCache.shared.updateRecordsBulk(newCacheRecords)
+            await DuplicateHashCache.shared.saveToDisk()
+        }
+        
+        let candidateClusters = groupedByPartial.values.filter { $0.count > 1 }
+        return Array(candidateClusters)
     }
     
     nonisolated private func computePartialKey(path: String, fileSize: Int64) -> String? {
-        guard let file = fopen(path, "rb") else { return nil }
-        defer { fclose(file) }
+        let fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        
+        var st = stat()
+        guard fstat(fd, &st) == 0 else { return nil }
+        guard (st.st_mode & S_IFMT) == S_IFREG else { return nil }
+        
+        // iCloud Dataless veya çevrimdışı dosyaları atla (0x40000000 = UF_DATALESS)
+        if (st.st_flags & 0x40000000) != 0 {
+            return nil
+        }
         
         let chunkSize = 4096
         var prefixBuffer = [UInt8](repeating: 0, count: chunkSize)
-        let prefixRead = fread(&prefixBuffer, 1, chunkSize, file)
+        let prefixRead = read(fd, &prefixBuffer, chunkSize)
         guard prefixRead > 0 else { return nil }
         
         var suffixBuffer = [UInt8](repeating: 0, count: chunkSize)
         var suffixRead = 0
         if fileSize > Int64(chunkSize * 2) {
-            fseek(file, -chunkSize, SEEK_END)
-            suffixRead = fread(&suffixBuffer, 1, chunkSize, file)
+            let offset = off_t(fileSize - Int64(chunkSize))
+            if lseek(fd, offset, SEEK_SET) != -1 {
+                let sRead = read(fd, &suffixBuffer, chunkSize)
+                if sRead > 0 {
+                    suffixRead = sRead
+                }
+            }
         }
         
         var hasher = SHA256()
@@ -606,17 +661,23 @@ public final class DuplicateFinderEngine: ObservableObject {
     }
     
     nonisolated private func computeFullSHA256(path: String) -> String? {
-        guard let file = fopen(path, "rb") else { return nil }
-        defer { fclose(file) }
+        let fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        guard fd >= 0 else { return nil }
+        defer { close(fd) }
+        
+        var st = stat()
+        guard fstat(fd, &st) == 0 else { return nil }
+        guard (st.st_mode & S_IFMT) == S_IFREG else { return nil }
+        if (st.st_flags & 0x40000000) != 0 { return nil }
         
         var hasher = SHA256()
-        let bufferSize = 262144 // 256 KB yüksek performanslı C tamponu (Sıfır Foundation köprüsü / Sıfır NSData yükü)
+        let bufferSize = 262144 // 256 KB yüksek performanslı tampon
         var buffer = [UInt8](repeating: 0, count: bufferSize)
         
         while true {
             if Task.isCancelled { return nil }
-            let bytesRead = fread(&buffer, 1, bufferSize, file)
-            if bytesRead == 0 { break }
+            let bytesRead = read(fd, &buffer, bufferSize)
+            if bytesRead <= 0 { break }
             hasher.update(data: Data(buffer[0..<bytesRead]))
         }
         let digest = hasher.finalize()

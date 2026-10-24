@@ -132,6 +132,12 @@ public struct MainView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             checkFirstRunPromo()
+            updateChecker.checkForUpdates(silent: true)
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab == .smartClean {
+                updateChecker.checkForUpdates(silent: true)
+            }
         }
     }
     
@@ -269,7 +275,7 @@ public struct MainView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.5") (Native)")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.6") (Native)")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -564,6 +570,9 @@ public struct MainView: View {
             
             Spacer()
             
+            // Canlı İhyâ Sürüm / Güncelleme Rozeti
+            headerUpdateStatusView
+            
             // Satın Al / Pro Tanıtım Butonu
             Button(action: {
                 showProPromoModal = true
@@ -619,12 +628,200 @@ public struct MainView: View {
         )
     }
     
+    // MARK: - Üst Çubuk İhyâ Sürüm & Canlı Güncelleme Rozeti
+    @ViewBuilder
+    private var headerUpdateStatusView: some View {
+        if updateChecker.updateAvailable {
+            Button(action: {
+                updateChecker.performDirectAutoUpdate()
+                HapticManager.shared.triggerSuccess()
+            }) {
+                HStack(spacing: 5) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(Color(hex: "FDE047"))
+                    Text("v\(updateChecker.latestVersion) Güncelle")
+                        .font(.system(size: 10.5, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    LinearGradient(
+                        colors: [Color(hex: "0284C7"), Color(hex: "2563EB")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .cornerRadius(8)
+                .shadow(color: Color(hex: "0284C7").opacity(0.4), radius: 5, y: 1)
+            }
+            .buttonStyle(.plain)
+            .help("Yeni İhyâ sürümü hazır! Tek tıkla güncellemek için tıklayın.")
+        } else if updateChecker.isChecking {
+            HStack(spacing: 5) {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .tint(Color(hex: "38BDF8"))
+                    .frame(width: 10, height: 10)
+                Text("Sürüm Kontrolü...")
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4.5)
+            .background(Color.white.opacity(0.04))
+            .cornerRadius(6)
+        } else {
+            Button(action: {
+                updateChecker.checkForUpdates(silent: false)
+                HapticManager.shared.triggerClick()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 10))
+                        .foregroundColor(Color(hex: "10B981"))
+                    Text("v\(updateChecker.currentVersion) Güncel")
+                        .font(.system(size: 10, weight: .medium, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4.5)
+                .background(Color.white.opacity(0.04))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .help("İhyâ en güncel sürümde. Yeniden denetlemek için tıklayın.")
+        }
+    }
+    
+    // MARK: - Ana Sayfa İhyâ Güncelleme Bildirimi
+    @ViewBuilder
+    private var homeUpdateNotificationBanner: some View {
+        if updateChecker.updateAvailable || updateChecker.isUpdating {
+            HStack(spacing: 14) {
+                // Parlayan 3D Rozet
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "0284C7"), Color(hex: "2563EB")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 36, height: 36)
+                        .shadow(color: Color(hex: "0284C7").opacity(0.4), radius: 6, y: 2)
+                    
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text("Yeni İhyâ Sürümü Hazır:")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        Text("v\(updateChecker.latestVersion)")
+                            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+                            .foregroundColor(Color(hex: "38BDF8"))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Color(hex: "0284C7").opacity(0.3))
+                            .cornerRadius(5)
+                        
+                        Text("•")
+                            .foregroundColor(.white.opacity(0.3))
+                        
+                        Text("Mevcut: v\(updateChecker.currentVersion)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.55))
+                    }
+                    
+                    Text(updateChecker.releaseNotes.isEmpty ? "Mac'iniz için yeni performans ve derin arınma güncellemeleri yayınlandı." : updateChecker.releaseNotes)
+                        .font(.system(size: 11))
+                        .foregroundColor(.white.opacity(0.75))
+                        .lineLimit(2)
+                }
+                
+                Spacer()
+                
+                // Tek Tıkla Güncelle Butonu
+                Button(action: {
+                    updateChecker.performDirectAutoUpdate()
+                    HapticManager.shared.triggerSuccess()
+                }) {
+                    HStack(spacing: 6) {
+                        if updateChecker.isUpdating {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .tint(.white)
+                                .frame(width: 14, height: 14)
+                            Text(updateChecker.updateStatusText.isEmpty ? "Güncelleniyor..." : updateChecker.updateStatusText)
+                                .font(.system(size: 12, weight: .bold))
+                        } else {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.system(size: 13, weight: .bold))
+                            Text("Şimdi Güncelle")
+                                .font(.system(size: 12, weight: .bold))
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "0284C7"), Color(hex: "2563EB")],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    .shadow(color: Color(hex: "0284C7").opacity(0.4), radius: 6, y: 2)
+                }
+                .buttonStyle(.plain)
+                .disabled(updateChecker.isUpdating)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(hex: "0A1628").opacity(0.92))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                LinearGradient(
+                                    colors: [Color(hex: "38BDF8").opacity(0.5), Color(hex: "2563EB").opacity(0.2)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+            )
+            .padding(.horizontal, 24)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+    
     // MARK: - Smart Clean Stage (Idle Hero vs Bento Grid)
     @ViewBuilder
     private var smartCleanStage: some View {
-        if !hasStartedSmartScan && !engine.isScanning && engine.totalReclaimableBytes == 0 {
-            // Boşta / İlk Açılış Hero Sahnesi
-            HeroStageView(
+        VStack(spacing: 0) {
+            // Ana Sayfa Canlı İhyâ Güncelleme Bildirimi
+            homeUpdateNotificationBanner
+            
+            if !hasStartedSmartScan && !engine.isScanning && engine.totalReclaimableBytes == 0 {
+                // Boşta / İlk Açılış Hero Sahnesi
+                HeroStageView(
                 title: "Akıllı Arınma",
                 subtitle: "Macintosh sisteminizi tek dokunuşla derinlemesine arındırın, hafızayı boşaltın ve hızı ilk günkü tazeliğine kavuşturun.",
                 emblemStyle: .emerald,
@@ -689,6 +886,7 @@ public struct MainView: View {
             }
         }
     }
+}
     
     private func startSmartCleanScan() {
         engine.resetCleanedState()

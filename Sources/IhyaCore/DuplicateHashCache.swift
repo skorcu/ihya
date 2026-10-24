@@ -47,6 +47,23 @@ public actor DuplicateHashCache {
         isDirty = false
     }
     
+    public func getRecordsSnapshot() -> [String: FileHashRecord] {
+        return cache
+    }
+    
+    public func updateRecordsBulk(_ newRecords: [FileHashRecord]) {
+        for rec in newRecords {
+            if let existing = cache[rec.path], abs(existing.mtime - rec.mtime) < 0.001 && existing.size == rec.size {
+                cache[rec.path] = FileHashRecord(path: rec.path, mtime: rec.mtime, size: rec.size, partialKey: rec.partialKey, fullSHA256: existing.fullSHA256 ?? rec.fullSHA256)
+            } else {
+                cache[rec.path] = rec
+            }
+        }
+        if !newRecords.isEmpty {
+            isDirty = true
+        }
+    }
+    
     public func getRecord(path: String, currentMTime: Double, currentSize: Int64) -> FileHashRecord? {
         guard let record = cache[path] else { return nil }
         if abs(record.mtime - currentMTime) < 0.001 && record.size == currentSize {

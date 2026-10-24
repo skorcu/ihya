@@ -19,7 +19,8 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // macOS TCC Gizlilik Kaydı Ön-Tetiklemesi (Tam Disk Erişimi listesine İhyâ'nın eklenmesi için)
         FDAChecker.triggerTCCRegistration()
         
-        // Merkezi Sürüm & Otomatik Güncelleme Motoru (3 sn sonra başlar)
+        // Açılışta derhal güncelleme kontrolü yap
+        IhyaUpdateChecker.shared.checkForUpdates(silent: true)
         IhyaUpdateChecker.shared.startPeriodicChecks()
         
         LegalNoticeWindow.shared.showIfNeeded { [weak self] in
@@ -71,8 +72,24 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    public func applicationDidBecomeActive(_ notification: Notification) {
+        // İhyâ her öne geldiğinde veya açıldığında arka planda güncelleme kontrolü yap
+        IhyaUpdateChecker.shared.checkForUpdates(silent: true)
+    }
+    
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            openMainWindow()
+        }
+        // Kapatılıp dock simgesinden tekrar tıklandığında güncelleme kontrolü yap
+        IhyaUpdateChecker.shared.checkForUpdates(silent: true)
+        return true
+    }
+    
     public func openMainWindow() {
         NSApp.setActivationPolicy(.regular)
+        // Pencere her açıldığında güncelleme kontrolünü tazele
+        IhyaUpdateChecker.shared.checkForUpdates(silent: true)
         if let win = window {
             win.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
