@@ -499,14 +499,18 @@ public final class AppUpdaterEngine: ObservableObject, @unchecked Sendable {
                 continue
             }
             
+            // macOS çekirdek sistem süreçlerini asla kapatma
+            if let path = app.bundleURL?.path, path.hasPrefix("/System") || path.hasPrefix("/usr") || path.hasPrefix("/bin") || path.hasPrefix("/sbin") {
+                continue
+            }
+            
             if let bURL = app.bundleURL?.path, !item.appPath.isEmpty, bURL == item.appPath {
                 if !targetsToKill.contains(where: { $0.processIdentifier == app.processIdentifier }) {
                     targetsToKill.append(app)
                 }
             } else if let locName = app.localizedName, !item.appName.isEmpty,
                       locName.localizedCaseInsensitiveCompare(item.appName) == .orderedSame ||
-                      item.appName.localizedCaseInsensitiveContains(locName) ||
-                      locName.localizedCaseInsensitiveContains(item.appName) {
+                      (locName.count >= 4 && item.appName.count >= 4 && (item.appName.localizedCaseInsensitiveContains(locName) || locName.localizedCaseInsensitiveContains(item.appName))) {
                 if !targetsToKill.contains(where: { $0.processIdentifier == app.processIdentifier }) {
                     targetsToKill.append(app)
                 }
@@ -712,6 +716,12 @@ public final class AppUpdaterEngine: ObservableObject, @unchecked Sendable {
             copyProc.waitUntilExit()
             
             if copyProc.terminationStatus == 0 {
+                // Karantina bayrağını temizle (Gatekeeper engeli olmadan sorunsuz açılması için)
+                let xattrProc = Process()
+                xattrProc.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+                xattrProc.arguments = ["-cr", destination]
+                try? xattrProc.run()
+                xattrProc.waitUntilExit()
                 return // Doğrudan başarıyla kopyalandı!
             }
         } catch {}
@@ -723,7 +733,7 @@ public final class AppUpdaterEngine: ObservableObject, @unchecked Sendable {
         // Kullanıcıya AppleScript Touch ID / Yönetici Parolası ile onay penceresi aç
         let escapedSource = source.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
         let escapedDest = destination.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        let appleScriptCode = "do shell script \"/usr/bin/ditto \\\"\(escapedSource)\\\" \\\"\(escapedDest)\\\"\" with administrator privileges"
+        let appleScriptCode = "do shell script \"/usr/bin/ditto \\\"\(escapedSource)\\\" \\\"\(escapedDest)\\\" && /usr/bin/xattr -cr \\\"\(escapedDest)\\\"\" with administrator privileges"
         
         let privilegedSuccess: Bool = await Task.detached {
             var errorDict: NSDictionary?

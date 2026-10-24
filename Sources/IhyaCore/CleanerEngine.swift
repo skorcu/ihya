@@ -340,12 +340,7 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     
     public func removeAllGhostDaemons() {
         for ghost in ghostDaemons {
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-            proc.arguments = ["bootout", "gui/\(getuid())", ghost.plistPath]
-            try? proc.run()
-            proc.waitUntilExit()
-            try? FileManager.default.removeItem(atPath: ghost.plistPath)
+            removeSingleGhostDaemon(ghost: ghost)
         }
         self.ghostDaemons.removeAll()
     }
@@ -357,13 +352,27 @@ public final class CleanerEngine: ObservableObject, @unchecked Sendable {
     }
     
     public func removeGhostDaemon(ghost: GhostDaemonItem) {
+        removeSingleGhostDaemon(ghost: ghost)
+        ghostDaemons.removeAll(where: { $0.id == ghost.id })
+    }
+    
+    private func removeSingleGhostDaemon(ghost: GhostDaemonItem) {
+        let domainTarget = ghost.isUserAgent ? "gui/\(getuid())" : "system"
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/bin/launchctl")
-        proc.arguments = ["bootout", "gui/\(getuid())", ghost.plistPath]
+        proc.arguments = ["bootout", domainTarget, ghost.plistPath]
         try? proc.run()
         proc.waitUntilExit()
-        try? FileManager.default.removeItem(atPath: ghost.plistPath)
-        ghostDaemons.removeAll(where: { $0.id == ghost.id })
+        
+        do {
+            try FileManager.default.removeItem(atPath: ghost.plistPath)
+        } catch {
+            // Root izinli /Library/LaunchDaemons için Touch ID / Yönetici yetkisi
+            let escaped = ghost.plistPath.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+            let adminScript = "do shell script \"/bin/rm -f \\\"\(escaped)\\\"\" with administrator privileges"
+            var err: NSDictionary?
+            _ = NSAppleScript(source: adminScript)?.executeAndReturnError(&err)
+        }
     }
     
     public func thinLipoItem(item: LipoItem) async -> (success: Bool, freedBytes: Int64) {

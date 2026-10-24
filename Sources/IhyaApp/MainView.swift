@@ -269,7 +269,7 @@ public struct MainView: View {
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                     
-                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.0") (Native)")
+                    Text("v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.5.4") (Native)")
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundColor(.white.opacity(0.5))
                 }
@@ -2138,7 +2138,7 @@ public struct MainView: View {
                     Image(systemName: "gift.fill")
                         .foregroundColor(Color(hex: "FDE047"))
                         .font(.system(size: 11))
-                    Text("Ömür Boyu Lisans • Sıfır Abonelik • 3'lü Fıtrî Kristal Taş Seti Hediyeli")
+                    Text("Ömür Boyu Lisans • Sıfır Abonelik • 3'lü Doğal Kristal Taş Seti Hediyeli")
                         .font(.system(size: 10.5, weight: .semibold))
                         .foregroundColor(Color(hex: "FDE047"))
                 }

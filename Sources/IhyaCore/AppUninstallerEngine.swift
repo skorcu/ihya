@@ -450,7 +450,18 @@ public final class AppUninstallerEngine: Sendable {
             _ = script.executeAndReturnError(&errorInfo)
         }
         
-        // 3. Kesin varlık doğrulaması
+        if !FileManager.default.fileExists(atPath: path) {
+            return true
+        }
+        
+        // 3. Root/Yönetici izinli dosyalarda sudo/admin ile ~/.Trash klasörüne taşıma
+        let adminScript = "do shell script \"/bin/mv \\\"\(escapedPath)\\\" ~/.Trash/\" with administrator privileges"
+        if let script = NSAppleScript(source: adminScript) {
+            var adminError: NSDictionary?
+            _ = script.executeAndReturnError(&adminError)
+        }
+        
+        // 4. Kesin varlık doğrulaması
         return !FileManager.default.fileExists(atPath: path)
     }
     

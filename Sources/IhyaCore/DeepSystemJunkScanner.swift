@@ -82,9 +82,8 @@ public final class DeepSystemJunkScanner: Sendable {
             }
         }
         
-        // 4. macOS Sistem Güncelleme Artıkları (/Library/Updates ve ~/Library/Caches/com.apple.SoftwareUpdate)
+        // 4. macOS Sistem Güncelleme Artıkları (~/Library/Caches/com.apple.SoftwareUpdate)
         let sysUpdatePaths = [
-            "/Library/Updates",
             (home as NSString).appendingPathComponent("Library/Caches/com.apple.SoftwareUpdate")
         ]
         for sPath in sysUpdatePaths {
