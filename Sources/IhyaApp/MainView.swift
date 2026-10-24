@@ -1729,6 +1729,73 @@ public struct MainView: View {
                         .stroke(Color.white.opacity(0.12), lineWidth: 1)
                 )
 
+                // macOS İzinleri ve Tam Disk Erişimi Kartı
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("macOS Güvenlik ve Tam Disk Erişimi")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Sistem önbellekleri ve artık dosyaların eksiksiz taranabilmesi için gereklidir.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.65))
+                        }
+                        
+                        Spacer()
+                        
+                        let hasFDA = FDAChecker.hasFullDiskAccess()
+                        Text(hasFDA ? "AKTİF ✓" : "İZİN GEREKİYOR")
+                            .font(.system(size: 10, weight: .black))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(hasFDA ? Color(hex: "10B981") : Color(hex: "F59E0B"))
+                            .foregroundColor(.white)
+                            .cornerRadius(4)
+                    }
+                    
+                    if !FDAChecker.hasFullDiskAccess() {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("• İhyâ'nın korumalı sistem dosyalarını tarayabilmesi için macOS izni tanımlanmalıdır.")
+                                .font(.system(size: 11))
+                                .foregroundColor(.white.opacity(0.75))
+                            Text("• Sistem Ayarları'nda İhyâ görünmüyorsa; sol alttaki '+' butonuna tıklayıp Uygulamalar'dan İhyâ'yı seçin veya 'Finder'da Göster' butonuna basarak simgeyi doğrudan pencereye sürükleyin.")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(hex: "FBBF24"))
+                                .lineSpacing(2)
+                        }
+                    }
+                    
+                    HStack(spacing: 12) {
+                        Button(action: {
+                            FDAChecker.openSystemSettings()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "gearshape.fill")
+                                Text("Sistem Ayarlarını Aç")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        
+                        Button(action: {
+                            FDAChecker.revealInFinder()
+                        }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder.fill")
+                                Text("Finder'da İhyâ'yı Göster (Sürükle)")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .help("İhyâ uygulamasını Finder'da seçer. Açılan Sistem Ayarları penceresine doğrudan sürükleyip bırakabilirsiniz.")
+                    }
+                }
+                .padding(18)
+                .background(Color.white.opacity(0.06))
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+
                 // Cihaz ve Mimari Bilgisi
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Cihaz Güvenliği & Çevrimdışı Parmak İzi")

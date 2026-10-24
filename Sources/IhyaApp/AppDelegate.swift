@@ -16,6 +16,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         // Cihaz telemetri ve canlı HWID lisans senkronizasyonu
         TelemetryManager.shared.sendHeartbeat()
         
+        // macOS TCC Gizlilik Kaydı Ön-Tetiklemesi (Tam Disk Erişimi listesine İhyâ'nın eklenmesi için)
+        FDAChecker.triggerTCCRegistration()
+        
         // Merkezi Sürüm & Otomatik Güncelleme Motoru (3 sn sonra başlar)
         IhyaUpdateChecker.shared.startPeriodicChecks()
         
