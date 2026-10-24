@@ -10,6 +10,7 @@
     <img src="https://img.shields.io/badge/Mimari-Universal_2_(arm64_+_x86__64)-8B5CF6?style=flat-square" />
     <img src="https://img.shields.io/badge/Swift-5.10_|_SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white" />
     <img src="https://img.shields.io/badge/Sürüm-v1.6.3-10B981?style=flat-square" />
+    <a href="https://github.com/skorcu/kasif"><img src="https://img.shields.io/badge/Kardeş_Uygulama-Kâşif_(APFS_Arama)-0284C7?style=flat-square&logo=apple&logoColor=white" /></a>
     <img src="https://img.shields.io/badge/Lisans-Proprietary_(Telif_Korumalı)-blue?style=flat-square" />
   </p>
 </div>
@@ -86,6 +87,23 @@ Geleneksel Mac temizleyicileri genellikle arka planda sürekli çalışan ağır
 ### [v1.5.1] — 24 Ekim 2026
 - **Tek Tıkla Otomatik Güncelleme Motoru (IhyaUpdateChecker):** Arka plan sürüm kontrolü ve tek tıkla atomik kurulum yeteneği getirildi.
 - **15 Günlük Ücretsiz Pro Deneme:** macOS Keychain ile korunan 15 günlük tam Pro deneme sürümü entegre edildi.
+
+---
+
+## 🤝 Kusursuz İkili: Kâşif ile Işık Hızında APFS Arama Deneyimi 🧭
+
+İhyâ ile Mac'inizi gigabaytlarca gereksiz çöpten ve arka plan yükünden arındırıp ilk günkü saf hızına kavuşturduktan sonra, aradığınız herhangi bir dosyaya milisaniyeler içinde ulaşmak için **[Kâşif](https://github.com/skorcu/kasif)** ile tanışın!
+
+İhyâ'nın kardeş uygulaması olan **Kâşif**, doğrudan macOS APFS çekirdeğine bağlanan saf Swift ve AppKit mimarisiyle inşa edilmiş ışık hızında bir **APFS Derin Dosya, WhatsApp, Apple Mail ve İçerik Arama Motorudur**.
+
+- ⚡ **0.001s APFS Hızı:** 5.000.000+ dosyayı milisaniyeler içinde tarar; harici 8TB SSD'lerde bile anında sonuç listeler.
+- 💬 **WhatsApp, Telegram & iMessage Derin Arama:** Bilgisayarınızdaki yerel mesaj arşivlerini tarayarak sohbetleri, doğrulama kodlarını ve belgeleri anında bulur.
+- 📬 **Apple Mail & Outlook:** Hem yerel Apple Mail hem de Outlook e-postalarında tam metin arama yapar.
+- 👁️ **QuickLook & Hızlı Önizleme:** `Boşluk` tuşuyla dosyaları açmadan tam ekran önizleyin.
+- 🔋 **Sıfır Pil & ~20 MB RAM:** Arka planda asla ağır servis veya fan çalıştırmaz (%0.0 CPU).
+- 🍎 **Apple Universal 2 & Noter Onaylı:** M1-M4 Apple Silicon ve Intel Mac'lerde saf yerel makine koduyla çalışır.
+
+👉 **[Kâşif'i GitHub'da İnceleyin & İndirin ➔](https://github.com/skorcu/kasif)**
 
 ---
 
