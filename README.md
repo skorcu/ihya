@@ -114,6 +114,22 @@ cd ihya
 
 ---
 
+## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
+
+### [v1.5.0] — 24 Ekim 2026 (Apple Noter Onaylı Güncel Sürüm)
+- **Granüler Tarayıcı & Web Gizlilik Kasası:** Safari, Chrome, Arc, Brave, Edge, Opera, Vivaldi, Firefox dahil 21+ tarayıcı desteği; IndexedDB, PWA ve V8 önbellek temizliği, güvenli şifre kalkanı ve onay modalı.
+- **Çift Dosya Avcısı (3 Aşamalı SHA-256):** Kısmi ön-hash ve tam SHA-256 doğrulamasıyla %100 kayıpsız çift dosya temizliği, canlı sayaç ve aday doğrulama oranı.
+- **Apple Noter Onayı (Stapled Ticket):** Apple Developer ID ile imzalanmış ve resmi Apple sunucularından noter güvenlik damgası almıştır. Gatekeeper uyarısı vermeden doğrudan açılır.
+- **Mimari İnceltici (App Lipo):** Apple Silicon (M-serisi) Mac'lerde gereksiz Intel x86_64 ikili kodlarını budayarak disk alanını ferahlatır.
+
+### [v1.4.0] — 24 Ekim 2026
+- **Geliştirici Kasası (Developer Vault):** Xcode DerivedData, ölü iOS Simülatörleri, Docker konteyner kalıntıları, npm, pnpm, yarn ve Gradle paket önbelleklerini tek tıkla temizleme motoru eklendi.
+
+### [v1.3.0] — 23 Ekim 2026
+- **Hacim Röntgeni (Space Lens / Sunburst):** Çok seviyeli renk halkaları ile diskteki en ağır klasör ve dosyaları interaktif görsel harita üzerinde anında tespit etme arayüzü entegre edildi.
+
+---
+
 ## 📄 Lisans & Teşekkür
 
 Bu proje açık kaynak felsefesiyle sunulmaktadır.  
