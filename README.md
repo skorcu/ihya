@@ -1,124 +1,105 @@
-# 💎 İhyâ (Mac) — Yeni Nesil Saf macOS Arınma & Canlanma Motoru
+# 💎 Ihya (Mac) — Next-Gen Pure Native macOS System Cleaner & Optimizer
 
 <div align="center">
-  <img src="https://caneser.com/images/ihya-logo.webp" width="128" height="128" alt="İhyâ macOS Logo" />
+  <img src="https://caneser.com/images/ihya-logo.webp" width="128" height="128" alt="Ihya macOS Logo" />
   <br />
-  <h2>Işık Hızında, %100 Yerel ve Gizlilik Odaklı macOS Sistem Arınma & Hız Mimarisi</h2>
-  <p><b>Apple Silicon (M1/M2/M3/M4) ve Intel (x86_64) Universal 2 Mimarisiyle Sıfır Tavizli Saf Performans</b></p>
+  <h2>Ultra-Fast, 100% Native, Privacy-First macOS System Rejuvenation & Optimization Engine</h2>
+  <p><b>Apple Silicon (M1/M2/M3/M4) & Intel (x86_64) Universal 2 Architecture with Zero Compromises</b></p>
+  <p>
+    <a href="README.md"><b>English</b></a> • 
+    <a href="README_TR.md"><b>🇹🇷 Türkçe</b></a>
+  </p>
+  <p>
+    <a href="https://caneser.com/downloads/Ihya.dmg"><img src="https://img.shields.io/badge/Download_DMG-v1.7.0_Universal_2-10B981?style=for-the-badge&logo=apple&logoColor=white" /></a>
+    <img src="https://img.shields.io/badge/Apple_Notarized-Official_Security_Passed_✓-0284C7?style=for-the-badge&logo=apple" />
+  </p>
   <p>
     <img src="https://img.shields.io/badge/Platform-macOS_14+_Sonoma_|_Sequoia-000000?style=flat-square&logo=apple&logoColor=white" />
-    <img src="https://img.shields.io/badge/Mimari-Universal_2_(arm64_+_x86__64)-8B5CF6?style=flat-square" />
-    <img src="https://img.shields.io/badge/Swift-5.10_|_SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white" />
-    <img src="https://img.shields.io/badge/Sürüm-v1.6.4-10B981?style=flat-square" />
-    <a href="https://github.com/skorcu/kasif"><img src="https://img.shields.io/badge/Kardeş_Uygulama-Kâşif_(APFS_Arama)-0284C7?style=flat-square&logo=apple&logoColor=white" /></a>
-    <img src="https://img.shields.io/badge/Lisans-Proprietary_(Telif_Korumalı)-blue?style=flat-square" />
+    <img src="https://img.shields.io/badge/Architecture-Universal_2_(arm64_+_x86__64)-8B5CF6?style=flat-square" />
+    <img src="https://img.shields.io/badge/Swift-6.0_|_SwiftUI-F05138?style=flat-square&logo=swift&logoColor=white" />
+    <img src="https://img.shields.io/badge/Privacy-100%25_Offline_•_Zero_Telemetry-10B981?style=flat-square" />
+    <img src="https://img.shields.io/badge/Memory_Idle-0.0_MB_(No_Daemons)-success?style=flat-square" />
+    <a href="https://github.com/skorcu/kasif"><img src="https://img.shields.io/badge/Sister_App-Kasif_(Instant_APFS_Search)-0284C7?style=flat-square&logo=apple&logoColor=white" /></a>
+    <img src="https://img.shields.io/badge/License-Proprietary_Freeware-blue?style=flat-square" />
   </p>
 </div>
 
 ---
 
-## 🌿 Sarkaç Adam'dan Mac Topluluğuna Bir Arınma Hediyesi
+## 🌿 A Gift of Serenity & Purity from Sarkaç Adam to the Global Mac Community
 
-> *"Zihinsel berraklık ve doğal denge için kadim doğal kristallerin huzurunu ararken, her gün saatlerimizi geçirdiğimiz çalışma alanımız olan Mac'imizin de arınmış, hafif ve pürüzsüz olması gerektiğine inanıyoruz.*  
-> *Sarkaç Adam olarak; geleneksel abonelik tuzaklarına ve sistemi yoran hantal araçlara inat, en saf Swift mühendisliğiyle geliştirdiğimiz **İhyâ**'yı tüm Mac kullanıcılarına **karşılıksız bir hediye** olarak takdim ediyoruz.*  
-> *Mac'iniz ilk günkü saf hızına kavuşurken, sizleri de çalışma masanıza sükûnet ve denge katacak doğal kristallerimizle tanışmaya davet ediyoruz."*
+> *"While seeking mental clarity, mindfulness, and harmonic balance through natural minerals and ancient crystal crafts, we believe the digital canvas where we spend hours every day—our Mac—should be equally pristine, lightweight, and unburdened.*  
+> *Sarkaç Adam proudly presents **Ihya** to Mac users worldwide as a **gift of rejuvenation**: engineered in pure Swift to dismantle subscription traps and heavy background clutter, returning your Mac to its day-one speed and tranquility."*
 
 ---
 
-## ⚡ Neden İhyâ? (Temel Farklar ve Karşılaştırma)
+## ⚡ Why Ihya? (Head-to-Head Comparison)
 
-Geleneksel Mac temizleyicileri genellikle arka planda sürekli çalışan ağır servislerle sistemi yorar, aylık abonelikler talep eder ve yüzlerce megabaytlık yer kaplar. **İhyâ**, macOS'un en modern yerel kütüphaneleriyle (SwiftUI, Combine, Darwin Kernel APIs, AppKit) sıfırdan geliştirilmiştir.
+Conventional Mac maintenance tools often burden your system with permanent background daemons, 300MB+ web runtimes, tracking telemetry, and recurring annual fees ($40–$90/year). **Ihya** was engineered from the ground up using Apple's modern native frameworks: **SwiftUI, Combine, Darwin Kernel APIs, and AppKit**.
 
-*Test Ortamı: Apple M-Serisi Apple Silicon & APFS SSD • 1.200.000 Dosya Havuzu*
+*Benchmark Environment: Apple Silicon M-Series & APFS SSD • 1,200,000 File Test Corpus*
 
-| Metrik & Standart | 💎 **İhyâ (v1.6.4 Universal 2)** | 📦 **Geleneksel Abonelikli Araçlar** |
+| Metric & Standard | 💎 **Ihya (v1.7.0 Universal 2)** | 📦 **Conventional Subscription Cleaners** |
 | :--- | :--- | :--- |
-| **Uygulama İkili Boyutu** | **2.8 MB** (Saf Swift Makine Kodu) | **180 MB – 260 MB** (Ağır Frameworkler) |
-| **Arka Planda RAM Tüketimi** | **0.0 MB** (Beklemede Servis Çalıştırmaz) | **180 MB – 350 MB** (24/7 Arka Plan Daemons) |
-| **Tam Sistem Tarama Hızı** | **~4 - 8 Saniye** (Çok Çekirdekli Eşzamanlı) | **45 - 90 Saniye** (Tek Çekirdek Kısıtı) |
-| **Çift Dosya Analizi** | **3 Aşamalı SHA-256** (Ön-hash + Tam Hash) | **Yavaş Bayt Karşılaştırma** |
-| **Başlangıç Yöneticisi** | **Giriş Öğeleri + LaunchAgents + Ölü Servisler** | **Sınırlı / Ayrı Satılan Modül** |
-| **Güvenlik & Gizlilik** | **%100 Yerel (Sıfır Telemetri / Buluta Veri Yok)** | **Sürekli Analitik & Telemetri İletişimi** |
-| **Fiyatlandırma Modeli** | **Hediye / Tek Seferlik Sahiplik** | **Yıllık 40$ - 90$ Zorunlu Abonelik** |
+| **Binary Size** | **8.3 MB** (Pure Universal 2 Swift) | **180 MB – 280 MB** (Bloated Frameworks) |
+| **Idle Background RAM** | **0.0 MB** (Zero Background Daemons) | **180 MB – 350 MB** (24/7 Running Agents) |
+| **Full System Scan Time** | **~4 - 8 Seconds** (Multi-core Concurrent) | **45 - 90 Seconds** (Single-core Bottleneck) |
+| **Conflicting Cleaners Guard** | **Built-in (Neutralizes Hidden Watchers)** | **None / Creates Conflicts** |
+| **Duplicate File Engine** | **3-Stage SHA-256** (Header + Fast + Full) | **Slow Linear Byte Scanning** |
+| **Startup Items Manager** | **Login Items + LaunchAgents + Broken Daemons** | **Limited / Sold Separately** |
+| **Privacy & Telemetry** | **100% Offline (Zero Network Telemetry)** | **Continuous Tracking & Cloud Analytics** |
+| **Pricing Model** | **Free Gift / One-Time Ownership** | **$40 - $90/Year Mandatory Subscription** |
 
 ---
 
-## 🛠️ Ana Yetenekler & Modüller
+## 🛠️ 11 Core Modules & Capabilities
 
-1. **Akıllı Arınma (Smart Clean):** Geliştirici artıklarını, sistem çöpünü, kırık günlükleri ve geçici önbellekleri tek dokunuşla analiz eder ve güvenle temizler.
-2. **Başlangıç & Arka Plan Yöneticisi (Startup Manager):** Mac açıldığında başlayan uygulamaları (Login Items), arka plandaki servisleri (LaunchAgents) tek tıkla açıp kapatır; silinmiş programlardan geriye kalan yetim/ölü kayıtları anında süpürür.
-3. **Sistem & Canlı Bellek Röntgeni (Memory & System Turbo):** Apple Silicon birleşik belleği, donanım çekirdeklerini ve en çok RAM tüketen uygulamaları canlı listeler; akıllı tavsiye banner'ı (`[Geç ➔]` döngüsü) ve root gerektirmeyen Darwin VM serbest bırakma döngüsüyle sistemi ferahlatır.
-4. **Çift Dosya Avcısı (Duplicate Finder):** Müzik, video, fotoğraf ve belgelerdeki mükerrer dosyaları 3 aşamalı SHA-256 algoritmasıyla sıfır hata payıyla tespit eder; anında küçük resim ve video kareleri sunar.
-5. **Hacim Röntgeni (Space Lens):** Diskinizi görsel haritalarla katman katman açarak en çok yer kaplayan devasa klasörleri tespit eder.
-6. **Derin Kaldırıcı (Deep App Uninstaller):** Uygulamaları sadece çöpe atmakla kalmaz; `~/Library` içine dağılmış tüm kalıntıları, plisteri ve önbellekleri kökünden siler.
-7. **Yazılım Güncelleyici (App Updater):** Sistemdeki Homebrew ve yerel macOS uygulamalarının güncellemelerini tek bir merkezden denetler.
-8. **Tarayıcı & Web Gizlilik Kasası:** Safari, Chrome, Arc, Brave, Edge dahil tüm tarayıcılarda IndexedDB, çerez ve önbellek arınması sağlar.
-9. **Mimari İnceltici (App Lipo):** Çift mimarili (Universal) uygulamalardaki kullanılmayan Intel/ARM kodlarını ayıklayarak diskte gigabaytlarca alan kazandırır.
-10. **Geliştirici Kasası (Developer Vault):** Xcode, CocoaPods, SPM, Node, Docker, Gradle ve Rust derleme çöplerini güvenle arındırır.
-
----
-
-## 🚀 Kurulum (DMG)
-
-1. **[Ihya.dmg İndir](https://caneser.com/downloads/Ihya.dmg)** veya **[GitHub Releases](https://github.com/skorcu/ihya/releases/latest/download/Ihya.dmg)** üzerinden en güncel resmi sürümü indirin.
-2. DMG dosyasını açıp **İhyâ**'yı **Uygulamalar (Applications)** klasörüne sürükleyin.
-3. Uygulamayı çalıştırın. macOS Sequoia / Sonoma Gatekeeper onayından pürüzsüzce geçer.
+1. **Smart Clean:** Deeply scans Xcode developer junk, system caches, orphaned user logs, temporary crash reports, and browser garbage in seconds.
+2. **Conflicting Cleaners Detection & Remediation:** Detects lingering background watchers (such as AppCleaner SmartDelete or CleanMyMac HealthMonitor) that cause lockups or duplicate prompts, and neutralizes them with one click.
+3. **Deep App Uninstaller:** Doesn't just move `.app` bundles to Trash; thoroughly identifies sandboxed containers (`~/Library/Containers`), Group Containers (`~/Library/Group Containers`), and caches, wiping all traces cleanly.
+4. **Startup & Background Daemon Manager:** Audit and toggle Login Items, user LaunchAgents, and system daemons. Instantly purge broken/orphaned startup records left behind by deleted software.
+5. **System & Memory Turbo (Darwin VM Pressure):** Live Apple Silicon Unified Memory radar. Frees inactive cached pages via safe userland memory allocation and `madvise(MADV_FREE)` pressure loops without requiring root privileges.
+6. **Duplicate File Hunter (SHA-256):** Precision duplicate detection across photos, audio, videos, and documents with instant video thumbnail and high-res image previews.
+7. **Space Lens:** Interactive visual sunburst tree mapping your storage layer-by-layer to pinpoint gigabyte-eating folders instantly.
+8. **Universal App Lipo:** Strips unused architecture binaries (Intel code on Apple Silicon, or ARM code on Intel Macs) from fat Universal applications, saving massive disk space.
+9. **Developer Vault:** One-click safe cleanup for Xcode DerivedData, CocoaPods caches, Swift Package Manager artifacts, Node modules, Docker build cache, Gradle, and Rust target folders.
+10. **Browser Privacy Vault:** Sanitizes cookies, cached media, local databases, and tracking storage across Safari, Google Chrome, Arc, Brave, and Microsoft Edge.
+11. **App Software Updater:** Aggregates installed Homebrew and local macOS applications into a unified update dashboard.
 
 ---
 
-## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
+## 🚀 Instant Installation (DMG)
 
-### [v1.6.4] — 24 Ekim 2026 (En Güncel Sürüm)
-- **macOS 28 ve Sequoia Uyumluluğu (Apple Silicon Yerel Mimari):**
-  - Gelecek nesil macOS sürümleri için tam yerel yürütme bayrakları (`LSArchitecturePriority: arm64`, `LSRequiresNativeExecution: true`) entegre edildi.
-  - Rosetta 2 uyarısı ve mimari gecikmesi sıfırlandı.
-- **Sistem Optimizasyon Motoru Güçlendirildi:**
-  - FinderSync, HotCorners ve FullScreen optimizasyon görevleri sisteme dahil edildi.
-  - 11 çekirdek test paketi %100 yeşil tamamlandı.
-- **Apple Noter Sertifikasyon Onayı:**
-  - Apple Notary Service tarafından denetlenip resmi onaylı DMG olarak imzalandı ve zımbalandı.
-
-### [v1.6.3] — 24 Ekim 2026
-- **Başlangıç & Arka Plan Yöneticisi (Startup Manager):**
-  - Mac açıldığında başlayan uygulamaları (Login Items - Kâşif, BetterDisplay vb.) ve arka plan servislerini (LaunchAgents - Adobe, Google, Zoom, Brew vb.) tek merkezden listeleyen ve tek tıkla açıp kapatmayı (toggle) sağlayan yeni mimari entegre edildi.
-  - Diskten silinmiş veya bozulmuş "Kırık / Ölü Başlangıç Kayıtları"nı (örneğin kaldırılmış Steam vb.) tek tıkla temizleme motoru eklendi.
-- **Akıllı Bellek Tavsiyesi Döngüsü (`[Geç ➔]`):**
-  - Bellek ekranında en çok RAM tüketen uygulama önerildiğinde (örneğin Antigravity), kapatılmak istenmiyorsa tek tıkla `[Geç ➔]` butonuyla bir sonraki uygulamaya (Xcode, Finder vb.) atlama ve önerileri başa sarma yeteneği getirildi.
-  - Kart tasarımı uygulama ikonu, koyu başlık ve kırmızı bellek rozetiyle yeniden tasarlandı.
-- **Darwin VM Pressure Serbest Bırakma Motoru:**
-  - macOS 14+ ve macOS 15 Sequoia'da root yetkisi olmadan çalışmayan `/usr/sbin/purge` yerine, kullanıcı alanında (Userland) güvenli bellek tahsisi ve `madvise(MADV_FREE)` sinyaliyle inaktif dosya önbelleğini (Inactive Cache) anında düşüren çekirdek baskı döngüsü yazıldı.
-  - Bellek kullanım yüzdesi Apple Activity Monitor standardına kalibre edilerek dinamik sıkıştırıcı ve inaktif tamponlar fiziksel aktif bellekten ayrıştırıldı.
-- **Sistem & Bellek Hızlı Geçiş Butonu:** Sistem & Bellek sekmesinden tek tıkla Başlangıç Yöneticisi'ne geçiş sağlandı.
-
-### [v1.5.2] — 24 Ekim 2026
-- **macOS TCC & Tam Disk Erişimi Köprüsü (FDAChecker):** macOS Sonoma ve Sequoia güvenlik kurallarına tam uyumlu otomatik TCC ön-kaydı, korumalı yol erişim tetiklemesi ve canlı izin algılama mimarisi entegre edildi.
-- **Finder Sürükle-Bırak Entegrasyonu:** Sistem Ayarları'nda yeni uygulamaların görünmeme durumuna karşı tek tıkla Finder'da İhyâ'yı seçip pencereye sürükleme köprüsü ve 3 adımlı interaktif görsel rehber eklendi.
-
-### [v1.5.1] — 24 Ekim 2026
-- **Tek Tıkla Otomatik Güncelleme Motoru (IhyaUpdateChecker):** Arka plan sürüm kontrolü ve tek tıkla atomik kurulum yeteneği getirildi.
-- **15 Günlük Ücretsiz Pro Deneme:** macOS Keychain ile korunan 15 günlük tam Pro deneme sürümü entegre edildi.
+1. Download the latest official release: **[Download Ihya.dmg](https://caneser.com/downloads/Ihya.dmg)**.
+2. Open the DMG image and drag **İhyâ** into your **Applications** folder.
+3. Launch the app. Officially signed with an Apple Developer ID and validated via Apple Notary Service for seamless Gatekeeper execution on **macOS Sonoma (14.0+)** and **macOS Sequoia (15.0+)**.
 
 ---
 
-## 🤝 Kusursuz İkili: Kâşif ile Işık Hızında APFS Arama Deneyimi 🧭
+## 🔒 Security, Integrity & Gatekeeper Certification
 
-İhyâ ile Mac'inizi gigabaytlarca gereksiz çöpten ve arka plan yükünden arındırıp ilk günkü saf hızına kavuşturduktan sonra, aradığınız herhangi bir dosyaya milisaniyeler içinde ulaşmak için **[Kâşif](https://github.com/skorcu/kasif)** ile tanışın!
-
-İhyâ'nın kardeş uygulaması olan **Kâşif**, doğrudan macOS APFS çekirdeğine bağlanan saf Swift ve AppKit mimarisiyle inşa edilmiş ışık hızında bir **APFS Derin Dosya, WhatsApp, Apple Mail ve İçerik Arama Motorudur**.
-
-- ⚡ **0.001s APFS Hızı:** 5.000.000+ dosyayı milisaniyeler içinde tarar; harici 8TB SSD'lerde bile anında sonuç listeler.
-- 💬 **WhatsApp, Telegram & iMessage Derin Arama:** Bilgisayarınızdaki yerel mesaj arşivlerini tarayarak sohbetleri, doğrulama kodlarını ve belgeleri anında bulur.
-- 📬 **Apple Mail & Outlook:** Hem yerel Apple Mail hem de Outlook e-postalarında tam metin arama yapar.
-- 👁️ **QuickLook & Hızlı Önizleme:** `Boşluk` tuşuyla dosyaları açmadan tam ekran önizleyin.
-- 🔋 **Sıfır Pil & ~20 MB RAM:** Arka planda asla ağır servis veya fan çalıştırmaz (%0.0 CPU).
-- 🍎 **Apple Universal 2 & Noter Onaylı:** M1-M4 Apple Silicon ve Intel Mac'lerde saf yerel makine koduyla çalışır.
-
-👉 **[Kâşif'i GitHub'da İnceleyin & İndirin ➔](https://github.com/skorcu/kasif)**
+- **Official Apple Notary Certification:** Every release is verified, notarized, and stapled by Apple (`xcrun notarytool`).
+- **Zero Telemetry:** Ihya contains no third-party tracking SDKs, no cloud analytics, and requires no internet connection to clean your Mac.
+- **TCC Transparency:** Adheres strictly to macOS Transparency, Consent, and Control (TCC) guidelines with clear prompts for Full Disk Access.
 
 ---
 
-## 📄 Lisans & Güvenlik
+## 🤝 The Perfect Companion: Kasif (Instant APFS Search) 🧭
 
-İhyâ, **Sarkaç Adam** tarafından Mac ekosistemine özel olarak geliştirilmiş kapalı kaynaklı (özel mülkiyet / proprietary), resmi Apple Noter güvenlik onaylı ve hediyeli bir arınma ve performans motorudur.  
-Tüm fikrî mülkiyet, kaynak kodları ve marka hakları **Sarkaç Adam** ekosistemine aittir.  
-Doğal kristal koleksiyonumuzu incelemek ve çalışma masanıza saf enerji katmak için [sarkacadam.com](https://sarkacadam.com) adresini ziyaret edebilirsiniz.
+Once your Mac is revitalized and unburdened by Ihya, experience instant search with **[Kasif](https://github.com/skorcu/kasif)**!
+
+Engineered as the sister application to Ihya, **Kasif** is a pure Swift & AppKit search engine connected directly to the macOS APFS filesystem kernel:
+- ⚡ **0.001s APFS Traversal:** Searches 5,000,000+ files in milliseconds across internal drives and 8TB external SSDs.
+- 💬 **Deep WhatsApp, Telegram & iMessage Search:** Queries local SQLite databases for messages, attachments, and verification codes.
+- 📬 **Apple Mail & Outlook:** Unified full-text search across all your local email accounts.
+- 🔋 **Zero Battery Impact & ~20MB RAM:** Consumes 0.0% CPU when idle with zero background indexing penalties.
+
+👉 **[Explore & Download Kasif on GitHub ➔](https://github.com/skorcu/kasif)**
+
+---
+
+## 📄 License & Attribution
+
+Ihya is developed by **Sarkaç Adam** as a dedicated contribution to the global Mac ecosystem.  
+All intellectual property, source architectures, and brand rights belong to the **Sarkaç Adam** ecosystem.  
+To explore our natural mineral and handcrafted crystal collections that inspire calm and focus for your workspace, visit **[sarkacadam.com](https://sarkacadam.com)**.
