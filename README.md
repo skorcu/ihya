@@ -10,7 +10,7 @@
     <a href="README_TR.md"><b>🇹🇷 Türkçe</b></a>
   </p>
   <p>
-    <a href="https://caneser.com/downloads/Ihya.dmg"><img src="https://img.shields.io/badge/Download_DMG-v1.7.0_Universal_2-10B981?style=for-the-badge&logo=apple&logoColor=white" /></a>
+    <a href="https://caneser.com/downloads/Ihya.dmg"><img src="https://img.shields.io/badge/Download_DMG-v1.8.0_Universal_2-10B981?style=for-the-badge&logo=apple&logoColor=white" /></a>
     <img src="https://img.shields.io/badge/Apple_Notarized-Official_Security_Passed_✓-0284C7?style=for-the-badge&logo=apple" />
   </p>
   <p>
@@ -81,6 +81,16 @@ Conventional Mac maintenance tools often burden your system with permanent backg
 - **Official Apple Notary Certification:** Every release is verified, notarized, and stapled by Apple (`xcrun notarytool`).
 - **Zero Telemetry:** Ihya contains no third-party tracking SDKs, no cloud analytics, and requires no internet connection to clean your Mac.
 - **TCC Transparency:** Adheres strictly to macOS Transparency, Consent, and Control (TCC) guidelines with clear prompts for Full Disk Access.
+
+## ✨ Version History & Changelog
+
+### [v1.8.0] — October 26, 2026 (Apple Notarized Latest Release)
+- **Installer Packages & DMG Vault Module:**
+  - Deep scanning of all `.dmg`, `.pkg`, `.iso`, and mounted installer volumes across `Downloads`, `Desktop`, and cache stores.
+  - **4-Tier Smart Status Matrix:** Auto-selects redundant installers for apps already installed on your Mac, while protecting uninstalled packages.
+  - **Install & Auto-Trash Innovation:** One-click silent install for uninstalled DMGs directly to `/Applications`, auto-detaching and trashing the installer image.
+  - **Orphan Mounted Volume Neutralization:** Detect and unmount abandoned DMG drives from `/Volumes` with single-click cleanup.
+- **Apple Notary Certification:** Officially verified and stapled via Apple Notary Service.
 
 ---
 

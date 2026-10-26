@@ -10,7 +10,7 @@
     <a href="README_TR.md"><b>🇹🇷 Türkçe</b></a>
   </p>
   <p>
-    <a href="https://caneser.com/downloads/Ihya.dmg"><img src="https://img.shields.io/badge/DMG_İndir-v1.7.0_Universal_2-10B981?style=for-the-badge&logo=apple&logoColor=white" /></a>
+    <a href="https://caneser.com/downloads/Ihya.dmg"><img src="https://img.shields.io/badge/DMG_İndir-v1.8.0_Universal_2-10B981?style=for-the-badge&logo=apple&logoColor=white" /></a>
     <img src="https://img.shields.io/badge/Apple_Noter-Resmi_Onaylı_✓-0284C7?style=for-the-badge&logo=apple" />
   </p>
   <p>
@@ -78,7 +78,16 @@ Geleneksel Mac temizleyicileri genellikle arka planda sürekli çalışan ağır
 
 ## ✨ Sürüm Geçmişi & Yenilikler (Changelog)
 
-### [v1.7.0] — 25 Ekim 2026 (Apple Noter Onaylı En Güncel Sürüm)
+### [v1.8.0] — 26 Ekim 2026 (Apple Noter Onaylı En Güncel Sürüm)
+- **Kurulum Paketleri & DMG Röntgeni Modülü:**
+  - İndirilenler, Masaüstü ve sistem depolarındaki tüm `.dmg`, `.pkg`, `.iso` ve açık disk imajlarını derinlemesine tarama yeteneği.
+  - **4 Kademeli Akıllı Durum Matrisi:** Yüklü uygulamalara ait paketleri ve eski sürümleri otomatik seçili (güvenle silinebilir), henüz kurulmamış paketleri ise korumalı (seçimsiz) listeleme.
+  - **Tek Tıkla Kur & Çöpe At:** Yüklü olmayan DMG paketlerini tek dokunuşla `/Applications`'a kurup imajı otomatik Çöp Sepeti'ne gönderme inovasyonu.
+  - **Açık Kalan Sürücü Yönetimi:** Masaüstünde unutulmuş mounted disk imajlarını tek tıkla unmount edip arındırma.
+- **Apple Noter Sertifikasyon Onayı:**
+  - Apple Notary Service tarafından onaylanıp resmi mühürlü DMG olarak paketlendi.
+
+### [v1.7.0] — 25 Ekim 2026
 - **Çakışan Temizlik Araçları Algılama ve Arındırma:**
   - Sistemde çalışan harici araçların (AppCleaner, CleanMyMac vb.) ve arka plan daimonlarının açılışta tespit edilmesi.
   - Tek tıkla derin kırıntılarıyla ve `launchd` servisleriyle birlikte arındırılması desteği.
